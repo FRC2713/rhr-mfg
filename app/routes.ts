@@ -16,8 +16,10 @@ export default [
     route("projects", "routes/projects.tsx"),
     route("mfg/tasks", "routes/mfg.tasks.tsx"),
     route("mfg/parts", "routes/mfg.parts.tsx"),
+    route("mfg/kanban", "routes/mfg.kanban.tsx"),
   ]),
   // API routes (not in layout)
   route("api/onshape/thumbnail", "routes/api.onshape.thumbnail.tsx"),
   route("api/onshape/parts", "routes/api.onshape.parts.tsx"),
+  route("api/kanban/config", "routes/api.kanban.config.tsx"),
 ] satisfies RouteConfig;
