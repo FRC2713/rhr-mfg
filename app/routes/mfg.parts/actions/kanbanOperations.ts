@@ -1,4 +1,5 @@
 import type { ActionResponse } from "../utils/types";
+import { createCard, updateCard } from "~/lib/kanbanApi/cards";
 
 /**
  * Handle adding a card to the Kanban board
@@ -31,29 +32,22 @@ export async function handleAddKanbanCard(
       imageUrl = `/api/onshape/thumbnail?${params.toString()}`;
     }
 
-    // Create card via API
-    const response = await fetch("/api/kanban/cards", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: partNumber,
-        imageUrl,
-        assignee: "Unassigned",
-        material: "TBD",
-        machine: "TBD",
-      }),
+    // Create card directly
+    const card = await createCard({
+      title: partNumber,
+      imageUrl,
+      assignee: "Unassigned",
+      material: "TBD",
+      machine: "TBD",
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      return { success: false, error: error.error || "Failed to create card" };
-    }
-
-    const result = await response.json();
-    return { success: true, data: result.card };
+    return { success: true, data: card };
   } catch (error) {
     console.error("[Kanban] Error adding card:", error);
-    return { success: false, error: "Failed to add card to tracker" };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to add card to tracker" 
+    };
   }
 }
 
@@ -71,25 +65,15 @@ export async function handleMoveKanbanCard(
   }
 
   try {
-    // Update card via API
-    const response = await fetch(`/api/kanban/cards/${cardId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        columnId,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      return { success: false, error: error.error || "Failed to move card" };
-    }
-
-    const result = await response.json();
-    return { success: true, data: result.card };
+    // Update card directly
+    const card = await updateCard(cardId, { columnId });
+    return { success: true, data: card };
   } catch (error) {
     console.error("[Kanban] Error moving card:", error);
-    return { success: false, error: "Failed to move card" };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to move card" 
+    };
   }
 }
 
@@ -107,25 +91,17 @@ export async function handleUpdateKanbanDueDate(
   }
 
   try {
-    // Update card via API
-    const response = await fetch(`/api/kanban/cards/${cardId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        dueDate: dueDate || null,
-      }),
+    // Update card directly
+    const card = await updateCard(cardId, {
+      dueDate: dueDate || undefined,
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      return { success: false, error: error.error || "Failed to update due date" };
-    }
-
-    const result = await response.json();
-    return { success: true, data: result.card };
+    return { success: true, data: card };
   } catch (error) {
     console.error("[Kanban] Error updating due date:", error);
-    return { success: false, error: "Failed to update due date" };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to update due date" 
+    };
   }
 }
 
