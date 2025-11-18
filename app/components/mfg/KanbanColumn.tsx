@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { GripVertical, Trash2 } from "lucide-react";
 import { KanbanColumnHeader } from "./KanbanColumnHeader";
+import { KanbanCard } from "./KanbanCard";
 import type { KanbanColumn as KanbanColumnType } from "~/routes/api.kanban.config";
+import type { KanbanCard as KanbanCardType } from "~/routes/api.kanban.cards/types";
 import {
   Dialog,
   DialogContent,
@@ -18,11 +20,12 @@ import { useState } from "react";
 
 interface KanbanColumnProps {
   column: KanbanColumnType;
+  cards: KanbanCardType[];
   onRename: (id: string, newTitle: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function KanbanColumn({ column, onRename, onDelete }: KanbanColumnProps) {
+export function KanbanColumn({ column, cards, onRename, onDelete }: KanbanColumnProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const {
@@ -106,9 +109,17 @@ export function KanbanColumn({ column, onRename, onDelete }: KanbanColumnProps) 
         </Dialog>
       </CardHeader>
       <CardContent>
-        <div className="text-sm text-muted-foreground">
-          No cards yet
-        </div>
+        {cards.length === 0 ? (
+          <div className="text-sm text-muted-foreground text-center py-8">
+            No cards yet
+          </div>
+        ) : (
+          <div className="space-y-0">
+            {cards.map((card) => (
+              <KanbanCard key={card.id} card={card} />
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

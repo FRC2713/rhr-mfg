@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   DndContext,
   closestCenter,
@@ -18,6 +19,7 @@ import { Button } from "~/components/ui/button";
 import { Plus } from "lucide-react";
 import { KanbanColumn } from "./KanbanColumn";
 import type { KanbanConfig, KanbanColumn as KanbanColumnType } from "~/routes/api.kanban.config";
+import type { KanbanCard } from "~/routes/api.kanban.cards/types";
 
 interface KanbanBoardProps {
   config: KanbanConfig;
@@ -34,6 +36,33 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Fetch cards
+  const { data: cardsData } = useQuery<{ cards: KanbanCard[] }>({
+    queryKey: ["kanban-cards"],
+    queryFn: async () => {
+      const response = await fetch("/api/kanban/cards");
+      if (!response.ok) {
+        throw new Error("Failed to fetch cards");
+      }
+      return response.json();
+    },
+    staleTime: 30 * 1000, // Cache for 30 seconds
+  });
+
+  const cards = cardsData?.cards || [];
+
+  // Group cards by columnId
+  const cardsByColumn = useMemo(() => {
+    const grouped: Record<string, KanbanCard[]> = {};
+    cards.forEach((card) => {
+      if (!grouped[card.columnId]) {
+        grouped[card.columnId] = [];
+      }
+      grouped[card.columnId].push(card);
+    });
+    return grouped;
+  }, [cards]);
 
   // Debounced save effect
   useEffect(() => {
@@ -122,6 +151,7 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
               <KanbanColumn
                 key={column.id}
                 column={column}
+                cards={cardsByColumn[column.id] || []}
                 onRename={handleRenameColumn}
                 onDelete={handleDeleteColumn}
               />

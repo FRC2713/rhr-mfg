@@ -22,4 +22,6 @@ export default [
   route("api/onshape/thumbnail", "routes/api.onshape.thumbnail.tsx"),
   route("api/onshape/parts", "routes/api.onshape.parts.tsx"),
   route("api/kanban/config", "routes/api.kanban.config.tsx"),
+  route("api/kanban/config/columns", "routes/api.kanban.config.columns.tsx"),
+  route("api/kanban/cards", "routes/api.kanban.cards.tsx"),
 ] satisfies RouteConfig;
