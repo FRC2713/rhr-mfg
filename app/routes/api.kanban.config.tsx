@@ -26,7 +26,7 @@ async function getConfig(): Promise<KanbanConfig> {
   try {
     // Check if config exists
     const response = await head(BLOB_KEY, {
-      token: process.env.BLOB_READ_WRITE_TOKEN,
+      token: process.env.RHR_MFG_DB_READ_WRITE_TOKEN,
     });
 
     if (response.url) {
@@ -45,7 +45,7 @@ async function getConfig(): Promise<KanbanConfig> {
 async function saveConfig(config: KanbanConfig): Promise<void> {
   const blob = await put(BLOB_KEY, JSON.stringify(config), {
     access: "public",
-    token: process.env.BLOB_READ_WRITE_TOKEN,
+    token: process.env.RHR_MFG_DB_READ_WRITE_TOKEN,
     addRandomSuffix: false, // Keep the same key
   });
 
