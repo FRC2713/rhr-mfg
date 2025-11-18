@@ -47,6 +47,7 @@ async function saveConfig(config: KanbanConfig): Promise<void> {
     access: "public",
     token: process.env.RHR_MFG_DB_READ_WRITE_TOKEN,
     addRandomSuffix: false, // Keep the same key
+    allowOverwrite: true, // Allow updating the existing config
   });
 
   console.log("[KANBAN CONFIG] Saved config to blob:", blob.url);

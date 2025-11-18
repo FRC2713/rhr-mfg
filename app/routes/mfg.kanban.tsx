@@ -1,7 +1,13 @@
 import type { Route } from "./+types/mfg.kanban";
 import { redirect } from "react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSession, isBasecampAuthenticated, isOnshapeAuthenticated, commitSession } from "~/lib/session";
+import { toast } from "sonner";
+import {
+  getSession,
+  isBasecampAuthenticated,
+  isOnshapeAuthenticated,
+  commitSession,
+} from "~/lib/session";
 import { KanbanBoard } from "~/components/mfg/KanbanBoard";
 import type { KanbanConfig } from "./api.kanban.config";
 
@@ -62,7 +68,8 @@ export default function MfgKanban() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to save config");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save configuration");
       }
 
       return response.json();
@@ -70,6 +77,13 @@ export default function MfgKanban() {
     onSuccess: (data) => {
       // Update the cache with the new config
       queryClient.setQueryData(["kanban-config"], data.config);
+      toast.success("Configuration saved");
+    },
+    onError: (error) => {
+      toast.error("Failed to save configuration", {
+        description:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      });
     },
   });
 
@@ -96,26 +110,17 @@ export default function MfgKanban() {
   return (
     <main className="container mx-auto px-4 py-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Kanban Board</h1>
-            <p className="text-muted-foreground">
-              Configure your workflow columns
-            </p>
-          </div>
-          {saveConfigMutation.isPending && (
-            <div className="text-sm text-muted-foreground">Saving...</div>
-          )}
+        <div>
+          <h1 className="text-3xl font-bold">Kanban Board</h1>
+          <p className="text-muted-foreground">
+            Configure your workflow columns
+          </p>
         </div>
 
         {config && (
-          <KanbanBoard
-            config={config}
-            onConfigChange={handleConfigChange}
-          />
+          <KanbanBoard config={config} onConfigChange={handleConfigChange} />
         )}
       </div>
     </main>
   );
 }
-

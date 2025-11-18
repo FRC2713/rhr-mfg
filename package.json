@@ -32,10 +32,12 @@
     "fuse.js": "^7.1.0",
     "isbot": "^5.1.31",
     "lucide-react": "^0.552.0",
+    "next-themes": "^0.4.6",
     "react": "^19.1.1",
     "react-day-picker": "^9.11.1",
     "react-dom": "^19.1.1",
     "react-router": "^7.9.2",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
