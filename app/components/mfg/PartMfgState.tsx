@@ -10,8 +10,8 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { CardTableColumn } from "~/lib/basecampApi/cardTables";
-import type { CardWithColumn } from "~/routes/mfg.parts/utils/types";
+import type { KanbanCard } from "~/routes/api.kanban.cards/types";
+import type { KanbanColumn } from "~/routes/api.kanban.config";
 import { PartDueDate } from "./PartDueDate";
 
 import type { PartsQueryParams } from "~/routes/mfg.parts/utils/types";
@@ -19,8 +19,8 @@ import type { PartsQueryParams } from "~/routes/mfg.parts/utils/types";
 interface PartMfgStateProps {
   part: BtPartMetadataInfo;
   queryParams: PartsQueryParams;
-  cards: CardWithColumn[];
-  columns: CardTableColumn[];
+  cards: KanbanCard[];
+  columns: KanbanColumn[];
 }
 
 /**
@@ -59,13 +59,7 @@ export function PartMfgState({ part, queryParams, cards, columns }: PartMfgState
 
   // Find current column if card exists
   const currentColumn = matchingCard 
-    ? columns.find(col => {
-        const columnIdNum = Number(col.id);
-        const cardParentId = matchingCard.parent?.id;
-        const cardColumnId = matchingCard.columnId;
-        return (cardParentId !== undefined && Number(cardParentId) === columnIdNum) ||
-               (cardColumnId !== undefined && Number(cardColumnId) === columnIdNum);
-      })
+    ? columns.find(col => col.id === matchingCard.columnId)
     : null;
 
   // If card not found, show "Add to manufacturing tracker" button
@@ -103,27 +97,10 @@ export function PartMfgState({ part, queryParams, cards, columns }: PartMfgState
 
   // If card found, show dropdown with column selection and badge
   const handleColumnChange = (newColumnId: string) => {
-    console.log("[PartMfgState] Column change:", {
-      cardId: matchingCard.id,
-      cardIdType: typeof matchingCard.id,
-      newColumnId,
-      newColumnIdType: typeof newColumnId,
-      matchingCard,
-    });
-
     const formData = new FormData();
     formData.append("action", "moveCard");
-    formData.append("cardId", String(matchingCard.id));
-    formData.append("columnId", String(newColumnId));
-    
-    // Add part metadata for thumbnail update
-    if (queryParams.documentId) {
-      formData.append("documentId", queryParams.documentId);
-      formData.append("instanceType", queryParams.instanceType);
-      formData.append("instanceId", queryParams.instanceId || "");
-      formData.append("elementId", queryParams.elementId || "");
-      formData.append("partId", part.partId || part.id || "");
-    }
+    formData.append("cardId", matchingCard.id);
+    formData.append("columnId", newColumnId);
     
     fetcher.submit(formData, { method: "post" });
   };
@@ -132,7 +109,7 @@ export function PartMfgState({ part, queryParams, cards, columns }: PartMfgState
     <div className="space-y-2">
       <Label className="text-xs">Manufacturing State:</Label>
       <Select
-        value={currentColumn?.id.toString() || ""}
+        value={currentColumn?.id || ""}
         onValueChange={handleColumnChange}
         disabled={fetcher.state === "submitting"}
       >
@@ -143,7 +120,7 @@ export function PartMfgState({ part, queryParams, cards, columns }: PartMfgState
         </SelectTrigger>
         <SelectContent>
           {columns.map((column) => (
-            <SelectItem key={column.id} value={column.id.toString()}>
+            <SelectItem key={column.id} value={column.id}>
               {column.title}
             </SelectItem>
           ))}

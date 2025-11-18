@@ -1,13 +1,6 @@
-import type { CardTableCard } from "~/lib/basecampApi/cardTableCards";
-import type { CardTableColumn } from "~/lib/basecampApi/cardTables";
-
-/**
- * Extended card type with list/column information
- */
-export interface CardWithColumn extends CardTableCard {
-  listTitle?: string;
-  columnId?: number;
-}
+// Re-export Kanban types for convenience
+export type { KanbanCard } from "~/routes/api.kanban.cards/types";
+export type { KanbanColumn } from "~/routes/api.kanban.config";
 
 /**
  * Query parameters for the parts route

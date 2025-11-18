@@ -1,8 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { CardTableColumn } from "~/lib/basecampApi/cardTables";
-import type { CardWithColumn, PartsQueryParams } from "~/routes/mfg.parts/utils/types";
+import type { KanbanCard } from "~/routes/api.kanban.cards/types";
+import type { KanbanColumn } from "~/routes/api.kanban.config";
+import type { PartsQueryParams } from "~/routes/mfg.parts/utils/types";
 import { PartCardThumbnail } from "./PartCardThumbnail";
 import { PartNumberInput } from "./PartNumberInput";
 import { PartMfgState } from "./PartMfgState";
@@ -11,8 +12,8 @@ import { ManufacturingStateBadge } from "./ManufacturingStateBadge";
 interface PartCardProps {
   part: BtPartMetadataInfo;
   queryParams: PartsQueryParams;
-  cards: CardWithColumn[];
-  columns: CardTableColumn[];
+  cards: KanbanCard[];
+  columns: KanbanColumn[];
 }
 
 /**
@@ -26,13 +27,7 @@ export function PartCard({ part, queryParams, cards, columns }: PartCardProps) {
 
   // Find current column if card exists
   const currentColumn = matchingCard 
-    ? columns.find(col => {
-        const columnIdNum = Number(col.id);
-        const cardParentId = matchingCard.parent?.id;
-        const cardColumnId = matchingCard.columnId;
-        return (cardParentId !== undefined && Number(cardParentId) === columnIdNum) ||
-               (cardColumnId !== undefined && Number(cardColumnId) === columnIdNum);
-      })
+    ? columns.find(col => col.id === matchingCard.columnId)
     : null;
 
   return (

@@ -24,4 +24,5 @@ export default [
   route("api/kanban/config", "routes/api.kanban.config.tsx"),
   route("api/kanban/config/columns", "routes/api.kanban.config.columns.tsx"),
   route("api/kanban/cards", "routes/api.kanban.cards.tsx"),
+  route("api/kanban/cards/:id", "routes/api.kanban.cards.$id.tsx"),
 ] satisfies RouteConfig;

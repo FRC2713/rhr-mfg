@@ -6,7 +6,6 @@ import Fuse from "fuse.js";
 import {
   getSession,
   isOnshapeAuthenticated,
-  isBasecampAuthenticated,
   commitSession,
 } from "~/lib/session";
 import { Card, CardContent } from "~/components/ui/card";
@@ -27,9 +26,9 @@ import { PartCard } from "~/components/mfg/PartCard";
 import { ErrorDisplay } from "~/components/mfg/ErrorDisplay";
 import { action } from "./mfg.parts/actions";
 import { validateQueryParams } from "./mfg.parts/loaders/queryValidation";
-import { loadBasecampData } from "./mfg.parts/loaders/basecampLoader";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { CardWithColumn } from "./mfg.parts/utils/types";
+import type { KanbanCard } from "./api.kanban.cards/types";
+import type { KanbanColumn } from "./api.kanban.config";
 
 export { action };
 
@@ -43,11 +42,10 @@ export function meta({}: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   const session = await getSession(request);
 
-  // Check both Basecamp and Onshape authentication (both required)
+  // Check Onshape authentication (required)
   const onshapeAuthenticated = await isOnshapeAuthenticated(request);
-  const basecampAuthenticated = await isBasecampAuthenticated(request);
 
-  if (!onshapeAuthenticated || !basecampAuthenticated) {
+  if (!onshapeAuthenticated) {
     // Preserve the full URL including query parameters for redirect
     const url = new URL(request.url);
     const fullPath = url.pathname + url.search;
@@ -73,14 +71,8 @@ export async function loader({ request }: Route.LoaderArgs) {
         elementType: null,
       },
       exampleUrl: validation.exampleUrl,
-      basecampCards: [],
-      basecampColumns: [],
-      basecampError: null,
     };
   }
-
-  // Load Basecamp data (optional) - still done server-side
-  const basecampData = await loadBasecampData(request);
 
   const cookie = await commitSession(session);
 
@@ -88,9 +80,6 @@ export async function loader({ request }: Route.LoaderArgs) {
     queryParams: validation.queryParams!,
     error: null,
     exampleUrl: null,
-    basecampCards: basecampData.cards,
-    basecampColumns: basecampData.columns,
-    basecampError: basecampData.error,
     headers: {
       "Set-Cookie": cookie,
     },
@@ -98,19 +87,36 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export default function MfgParts({ loaderData }: Route.ComponentProps) {
-  const {
-    queryParams,
-    error: validationError,
-    exampleUrl,
-    basecampCards,
-    basecampColumns,
-  } = loaderData;
+  const { queryParams, error: validationError, exampleUrl } = loaderData;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<
     "none" | "name" | "partNumber" | "mfgState" | "createdAt" | "updatedAt"
   >("none");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Fetch Kanban data client-side
+  const { data: kanbanCardsData } = useQuery<{ cards: KanbanCard[] }>({
+    queryKey: ["kanban-cards"],
+    queryFn: async () => {
+      const response = await fetch("/api/kanban/cards");
+      if (!response.ok) throw new Error("Failed to fetch cards");
+      return response.json();
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const { data: kanbanColumns = [] } = useQuery<KanbanColumn[]>({
+    queryKey: ["kanban-columns"],
+    queryFn: async () => {
+      const response = await fetch("/api/kanban/config/columns");
+      if (!response.ok) throw new Error("Failed to fetch columns");
+      return response.json();
+    },
+    staleTime: 60 * 1000,
+  });
+
+  const kanbanCards = kanbanCardsData?.cards || [];
 
   // Fetch parts data client-side using TanStack Query
   const {
@@ -192,40 +198,19 @@ export default function MfgParts({ loaderData }: Route.ComponentProps) {
       case "mfgState": {
         // Sort by manufacturing state (column position)
         return partsToSort.sort((a, b) => {
-          const cardA = basecampCards?.find(
-            (card) => card.title === a.partNumber
-          );
-          const cardB = basecampCards?.find(
-            (card) => card.title === b.partNumber
-          );
+          const cardA = kanbanCards.find((card) => card.title === a.partNumber);
+          const cardB = kanbanCards.find((card) => card.title === b.partNumber);
 
           if (!cardA && !cardB) return 0;
           if (!cardA) return 1; // Parts without cards go to the end
           if (!cardB) return -1;
 
-          const columnA = basecampColumns?.find((col) => {
-            const columnIdNum = Number(col.id);
-            const cardParentId = cardA.parent?.id;
-            const cardColumnId = cardA.columnId;
-            return (
-              (cardParentId !== undefined &&
-                Number(cardParentId) === columnIdNum) ||
-              (cardColumnId !== undefined &&
-                Number(cardColumnId) === columnIdNum)
-            );
-          });
-
-          const columnB = basecampColumns?.find((col) => {
-            const columnIdNum = Number(col.id);
-            const cardParentId = cardB.parent?.id;
-            const cardColumnId = cardB.columnId;
-            return (
-              (cardParentId !== undefined &&
-                Number(cardParentId) === columnIdNum) ||
-              (cardColumnId !== undefined &&
-                Number(cardColumnId) === columnIdNum)
-            );
-          });
+          const columnA = kanbanColumns.find(
+            (col) => col.id === cardA.columnId
+          );
+          const columnB = kanbanColumns.find(
+            (col) => col.id === cardB.columnId
+          );
 
           const positionA = columnA?.position ?? Number.MAX_SAFE_INTEGER;
           const positionB = columnB?.position ?? Number.MAX_SAFE_INTEGER;
@@ -237,19 +222,15 @@ export default function MfgParts({ loaderData }: Route.ComponentProps) {
       case "createdAt": {
         // Sort by card creation date
         return partsToSort.sort((a, b) => {
-          const cardA = basecampCards?.find(
-            (card) => card.title === a.partNumber
-          );
-          const cardB = basecampCards?.find(
-            (card) => card.title === b.partNumber
-          );
+          const cardA = kanbanCards.find((card) => card.title === a.partNumber);
+          const cardB = kanbanCards.find((card) => card.title === b.partNumber);
 
           if (!cardA && !cardB) return 0;
           if (!cardA) return 1; // Parts without cards go to the end
           if (!cardB) return -1;
 
-          const dateA = new Date(cardA.created_at).getTime();
-          const dateB = new Date(cardB.created_at).getTime();
+          const dateA = new Date(cardA.dateCreated).getTime();
+          const dateB = new Date(cardB.dateCreated).getTime();
 
           // Base sort: newest first (dateB - dateA), then apply direction
           return (dateB - dateA) * directionMultiplier;
@@ -259,19 +240,15 @@ export default function MfgParts({ loaderData }: Route.ComponentProps) {
       case "updatedAt": {
         // Sort by card last updated date
         return partsToSort.sort((a, b) => {
-          const cardA = basecampCards?.find(
-            (card) => card.title === a.partNumber
-          );
-          const cardB = basecampCards?.find(
-            (card) => card.title === b.partNumber
-          );
+          const cardA = kanbanCards.find((card) => card.title === a.partNumber);
+          const cardB = kanbanCards.find((card) => card.title === b.partNumber);
 
           if (!cardA && !cardB) return 0;
           if (!cardA) return 1; // Parts without cards go to the end
           if (!cardB) return -1;
 
-          const dateA = new Date(cardA.updated_at).getTime();
-          const dateB = new Date(cardB.updated_at).getTime();
+          const dateA = new Date(cardA.dateUpdated).getTime();
+          const dateB = new Date(cardB.dateUpdated).getTime();
 
           // Base sort: most recently updated first (dateB - dateA), then apply direction
           return (dateB - dateA) * directionMultiplier;
@@ -281,7 +258,7 @@ export default function MfgParts({ loaderData }: Route.ComponentProps) {
       default:
         return partsToSort;
     }
-  }, [filteredParts, sortBy, sortDirection, basecampCards, basecampColumns]);
+  }, [filteredParts, sortBy, sortDirection, kanbanCards, kanbanColumns]);
 
   const error = validationError || (partsError ? String(partsError) : null);
 
@@ -411,8 +388,8 @@ export default function MfgParts({ loaderData }: Route.ComponentProps) {
                     }
                     part={part}
                     queryParams={queryParams}
-                    cards={basecampCards || []}
-                    columns={basecampColumns || []}
+                    cards={kanbanCards}
+                    columns={kanbanColumns}
                   />
                 ))}
               </div>

@@ -84,13 +84,10 @@ export async function action({ request }: { request: Request }) {
   try {
     const body = await request.json();
 
-    // Validate required fields
-    const requiredFields = ["title", "imageUrl", "assignee", "material", "machine"];
-    const missingFields = requiredFields.filter((field) => !body[field]);
-
-    if (missingFields.length > 0) {
+    // Validate required field (only title is required)
+    if (!body.title) {
       return Response.json(
-        { error: `Missing required fields: ${missingFields.join(", ")}` },
+        { error: "Missing required field: title" },
         { status: 400 }
       );
     }
@@ -117,6 +114,8 @@ export async function action({ request }: { request: Request }) {
       dateUpdated: now,
       material: body.material,
       machine: body.machine,
+      dueDate: body.dueDate,
+      content: body.content,
     };
 
     // Get existing cards and add the new one

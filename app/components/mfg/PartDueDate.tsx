@@ -11,23 +11,24 @@ import {
   PopoverTrigger,
 } from "~/components/ui/popover";
 import { cn } from "~/lib/utils";
-import type { CardWithColumn, PartsQueryParams } from "~/routes/mfg.parts/utils/types";
-import type { CardTableColumn } from "~/lib/basecampApi/cardTables";
+import type { KanbanCard } from "~/routes/api.kanban.cards/types";
+import type { KanbanColumn } from "~/routes/api.kanban.config";
+import type { PartsQueryParams } from "~/routes/mfg.parts/utils/types";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 
 interface PartDueDateProps {
-  card: CardWithColumn;
+  card: KanbanCard;
   part: BtPartMetadataInfo;
   queryParams: PartsQueryParams;
-  columns: CardTableColumn[];
+  columns: KanbanColumn[];
 }
 
 /**
  * Component to display and edit the due date for a card
  */
 /**
- * Parse a date string from Basecamp (ISO 8601) as a local date
- * Basecamp returns dates like "2024-01-15" which should be treated as local dates, not UTC
+ * Parse a date string (ISO 8601) as a local date
+ * Dates like "2024-01-15" should be treated as local dates, not UTC
  */
 function parseLocalDate(dateString: string): Date {
   // If it's just a date (YYYY-MM-DD), parse it as local time to avoid timezone issues
@@ -39,21 +40,21 @@ function parseLocalDate(dateString: string): Date {
   return parseISO(dateString);
 }
 
-export function PartDueDate({ card, part, queryParams }: PartDueDateProps) {
+export function PartDueDate({ card }: PartDueDateProps) {
   const fetcher = useFetcher();
   const revalidator = useRevalidator();
   const [open, setOpen] = useState(false);
   
-  // Parse the card's due_on date only when it actually changes
+  // Parse the card's dueDate only when it actually changes
   const cardDueDate = useMemo(() => {
-    if (!card.due_on) return undefined;
+    if (!card.dueDate) return undefined;
     try {
-      return parseLocalDate(card.due_on);
+      return parseLocalDate(card.dueDate);
     } catch (e) {
-      console.error("Error parsing due date:", card.due_on, e);
+      console.error("Error parsing due date:", card.dueDate, e);
       return undefined;
     }
-  }, [card.due_on]);
+  }, [card.dueDate]);
   
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(cardDueDate);
   const hasRevalidatedRef = useRef(false);
@@ -114,17 +115,8 @@ export function PartDueDate({ card, part, queryParams }: PartDueDateProps) {
       
       const formData = new FormData();
       formData.append("action", "updateDueDate");
-      formData.append("cardId", String(card.id));
-      formData.append("dueOn", isoDate);
-      
-      // Add part metadata for thumbnail update
-      if (queryParams.documentId) {
-        formData.append("documentId", queryParams.documentId);
-        formData.append("instanceType", queryParams.instanceType);
-        formData.append("instanceId", queryParams.instanceId || "");
-        formData.append("elementId", queryParams.elementId || "");
-        formData.append("partId", part.partId || part.id || "");
-      }
+      formData.append("cardId", card.id);
+      formData.append("dueDate", isoDate);
       
       fetcher.submit(formData, { method: "post" });
     }
@@ -139,17 +131,8 @@ export function PartDueDate({ card, part, queryParams }: PartDueDateProps) {
     
     const formData = new FormData();
     formData.append("action", "updateDueDate");
-    formData.append("cardId", String(card.id));
-    formData.append("dueOn", "");
-    
-    // Add part metadata for thumbnail update
-    if (queryParams.documentId) {
-      formData.append("documentId", queryParams.documentId);
-      formData.append("instanceType", queryParams.instanceType);
-      formData.append("instanceId", queryParams.instanceId || "");
-      formData.append("elementId", queryParams.elementId || "");
-      formData.append("partId", part.partId || part.id || "");
-    }
+    formData.append("cardId", card.id);
+    formData.append("dueDate", "");
     
     fetcher.submit(formData, { method: "post" });
   };
