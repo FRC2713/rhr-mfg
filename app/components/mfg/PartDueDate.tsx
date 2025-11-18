@@ -1,5 +1,6 @@
-import { useFetcher, useRevalidator } from "react-router";
+import { useFetcher } from "react-router";
 import { useEffect, useState, useMemo, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { Button } from "~/components/ui/button";
@@ -42,7 +43,7 @@ function parseLocalDate(dateString: string): Date {
 
 export function PartDueDate({ card }: PartDueDateProps) {
   const fetcher = useFetcher();
-  const revalidator = useRevalidator();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   
   // Parse the card's dueDate only when it actually changes
@@ -96,12 +97,11 @@ export function PartDueDate({ card }: PartDueDateProps) {
     if (fetcher.data?.success && fetcher.state === "idle" && !hasRevalidatedRef.current) {
       hasRevalidatedRef.current = true;
       setOpen(false);
-      // Only revalidate once after successful submission
-      setTimeout(() => {
-        revalidator.revalidate();
-      }, 100);
+      
+      // Invalidate cards query to refresh the UI
+      queryClient.invalidateQueries({ queryKey: ["kanban-cards"] });
     }
-  }, [fetcher.data?.success, fetcher.state, revalidator]);
+  }, [fetcher.data?.success, fetcher.state, queryClient]);
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {

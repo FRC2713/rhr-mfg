@@ -1,5 +1,6 @@
-import { useFetcher, useRevalidator } from "react-router";
+import { useFetcher } from "react-router";
 import { useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import {
@@ -28,7 +29,7 @@ interface PartMfgStateProps {
  */
 export function PartMfgState({ part, queryParams, cards, columns }: PartMfgStateProps) {
   const fetcher = useFetcher();
-  const revalidator = useRevalidator();
+  const queryClient = useQueryClient();
   const hasRevalidatedRef = useRef(false);
 
   // Reset revalidation flag when starting a new operation
@@ -38,16 +39,16 @@ export function PartMfgState({ part, queryParams, cards, columns }: PartMfgState
     }
   }, [fetcher.state]);
 
-  // Handle successful card operations
+  // Handle successful card operations - invalidate queries to refetch
   useEffect(() => {
     if (fetcher.data?.success && fetcher.state === "idle" && !hasRevalidatedRef.current) {
       hasRevalidatedRef.current = true;
-      // Only revalidate once after successful submission
-      setTimeout(() => {
-        revalidator.revalidate();
-      }, 100);
+      
+      // Invalidate both cards and columns queries to refresh the UI
+      queryClient.invalidateQueries({ queryKey: ["kanban-cards"] });
+      queryClient.invalidateQueries({ queryKey: ["kanban-columns"] });
     }
-  }, [fetcher.data?.success, fetcher.state, revalidator]);
+  }, [fetcher.data?.success, fetcher.state, queryClient]);
 
   // Don't show anything if part has no part number
   if (!part.partNumber) {

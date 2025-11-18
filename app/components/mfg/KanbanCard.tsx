@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import type { KanbanCard as KanbanCardType } from "~/routes/api.kanban.cards/types";
@@ -7,6 +8,8 @@ interface KanbanCardProps {
 }
 
 export function KanbanCard({ card }: KanbanCardProps) {
+  const [imageError, setImageError] = useState(false);
+  
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -24,31 +27,39 @@ export function KanbanCard({ card }: KanbanCardProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {card.imageUrl && (
-          <div className="aspect-video w-full overflow-hidden rounded-md bg-muted">
+        {card.imageUrl && !imageError && (
+          <div className="w-full">
             <img
               src={card.imageUrl}
               alt={card.title}
-              className="h-full w-full object-cover"
+              className="bg-muted h-auto w-full rounded border"
+              onError={() => setImageError(true)}
+              style={{ maxHeight: "300px", objectFit: "contain" }}
             />
           </div>
         )}
         
         <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Assignee:</span>
-            <span className="font-medium">{card.assignee}</span>
-          </div>
+          {card.assignee && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Assignee:</span>
+              <span className="font-medium">{card.assignee}</span>
+            </div>
+          )}
           
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Material:</span>
-            <Badge variant="secondary">{card.material}</Badge>
-          </div>
+          {card.material && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Material:</span>
+              <Badge variant="secondary">{card.material}</Badge>
+            </div>
+          )}
           
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Machine:</span>
-            <Badge variant="outline">{card.machine}</Badge>
-          </div>
+          {card.machine && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Machine:</span>
+              <Badge variant="outline">{card.machine}</Badge>
+            </div>
+          )}
           
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
             <span>Created:</span>
