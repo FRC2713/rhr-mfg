@@ -1,18 +1,16 @@
-# Welcome to React Router!
+# rhr-mfg
 
-A modern, production-ready template for building full-stack React applications using React Router.
-
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+A manufacturing management application that integrates Onshape CAD data with Basecamp project management. View parts, manage manufacturing tasks, track production states, and streamline your workflow.
 
 ## Features
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+- 🔗 Onshape & Basecamp integration
+- 📦 Part management with thumbnails
+- 🏭 Manufacturing state tracking
+- 📊 Card table management
+- 🔒 OAuth authentication for both services
+- 🎨 Modern UI with shadcn components
+- 🚀 Built with React Router v7
 
 ## Getting Started
 
