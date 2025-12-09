@@ -1,8 +1,6 @@
 import { createCard, updateCard } from "~/lib/kanbanApi/cards";
-import {
-  createOnshapeApiClient,
-  sessionInfo,
-} from "~/lib/onshapeApi/generated-wrapper";
+import { onshapeApiRequest } from "~/lib/onshapeApi/auth";
+import { getValidOnshapeToken } from "~/lib/tokenRefresh";
 import type { ActionResponse } from "../utils/types";
 
 /**
@@ -37,87 +35,52 @@ export async function handleAddKanbanCard(
       imageUrl = `/api/onshape/thumbnail?${params.toString()}`;
     }
 
-    // Get user information from Onshape
+    // Get user information from Onshape using /users/current endpoint
     let createdBy: string | undefined;
     try {
-      const onshapeClient = await createOnshapeApiClient(request);
+      const accessToken = await getValidOnshapeToken(request);
 
-      // Use default responseStyle to get full response including status
-      const fullResponse = await sessionInfo({
-        client: onshapeClient,
-        throwOnError: false,
-      });
-
-      console.log(
-        "[Kanban] Full response:",
-        JSON.stringify(fullResponse, null, 2)
-      );
-
-      // Check response status and errors
-      if ((fullResponse as any).error) {
-        console.error(
-          "[Kanban] API returned error:",
-          (fullResponse as any).error
-        );
-      }
-
-      if ((fullResponse as any).response) {
-        const response = (fullResponse as any).response;
-        console.log("[Kanban] Response status:", response.status);
-        console.log("[Kanban] Response ok:", response.ok);
+      if (!accessToken) {
+        console.log("[Kanban] No access token available");
+      } else {
+        const response = await onshapeApiRequest(accessToken, "/users/current");
 
         if (!response.ok) {
-          try {
-            const errorText = await response.clone().text();
-            console.error(
-              "[Kanban] API response not OK. Status:",
-              response.status,
-              "Error:",
-              errorText
+          const errorText = await response
+            .text()
+            .catch(() => "Unable to read error");
+          console.error(
+            "[Kanban] API response not OK. Status:",
+            response.status,
+            "Error:",
+            errorText
+          );
+        } else {
+          const user = await response.json();
+          console.log("[Kanban] User data:", JSON.stringify(user, null, 2));
+
+          if (user && typeof user === "object" && !Array.isArray(user)) {
+            const firstName = user.firstName;
+            const lastName = user.lastName;
+
+            console.log(
+              "[Kanban] First name:",
+              firstName,
+              "Last name:",
+              lastName
             );
-          } catch (e) {
-            console.error("[Kanban] Could not read error text:", e);
+
+            // Combine firstName and lastName, handling cases where one might be missing
+            const nameParts: string[] = [];
+            if (firstName) nameParts.push(firstName);
+            if (lastName) nameParts.push(lastName);
+            createdBy = nameParts.length > 0 ? nameParts.join(" ") : undefined;
+
+            console.log("[Kanban] Created by:", createdBy);
+          } else {
+            console.log("[Kanban] User data is not a valid object");
           }
         }
-      }
-
-      // Extract user data from response
-      const userData = (fullResponse as any).data;
-      console.log(
-        "[Kanban] Extracted data:",
-        JSON.stringify(userData, null, 2)
-      );
-
-      if (userData) {
-        // The data should be SessionInfoResponses which has a 'default' property
-        const user = userData.default || userData;
-
-        if (user && typeof user === "object" && !Array.isArray(user)) {
-          const firstName = user.firstName;
-          const lastName = user.lastName;
-
-          console.log(
-            "[Kanban] First name:",
-            firstName,
-            "Last name:",
-            lastName
-          );
-          console.log("[Kanban] User object keys:", Object.keys(user));
-
-          // Combine firstName and lastName, handling cases where one might be missing
-          const nameParts: string[] = [];
-          if (firstName) nameParts.push(firstName);
-          if (lastName) nameParts.push(lastName);
-          createdBy = nameParts.length > 0 ? nameParts.join(" ") : undefined;
-
-          console.log("[Kanban] Created by:", createdBy);
-        } else {
-          console.log("[Kanban] User data is not a valid object");
-        }
-      } else {
-        console.log(
-          "[Kanban] No data in response - API call may have failed or returned null"
-        );
       }
     } catch (error) {
       // Log error but don't fail card creation if user info fetch fails
