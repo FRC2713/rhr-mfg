@@ -38,21 +38,40 @@ export async function handleAddKanbanCard(
     let createdBy: string | undefined;
     try {
       const onshapeClient = await createOnshapeApiClient(request);
-      const userInfo = await sessionInfo({ client: onshapeClient });
+      const userInfoResponse = await sessionInfo({ client: onshapeClient });
       
-      if (userInfo.default) {
-        const firstName = userInfo.default.firstName;
-        const lastName = userInfo.default.lastName;
+      console.log("[Kanban] User info response:", JSON.stringify(userInfoResponse, null, 2));
+      
+      // The response might be wrapped in a 'data' property or have a 'default' property
+      // Handle both cases: { data: { default: ... } } or { default: ... }
+      const userInfo = (userInfoResponse as any).data || userInfoResponse;
+      const user = userInfo?.default || userInfo;
+      
+      console.log("[Kanban] Extracted user object:", JSON.stringify(user, null, 2));
+      
+      if (user) {
+        const firstName = user.firstName;
+        const lastName = user.lastName;
+        
+        console.log("[Kanban] First name:", firstName, "Last name:", lastName);
         
         // Combine firstName and lastName, handling cases where one might be missing
         const nameParts: string[] = [];
         if (firstName) nameParts.push(firstName);
         if (lastName) nameParts.push(lastName);
         createdBy = nameParts.length > 0 ? nameParts.join(" ") : undefined;
+        
+        console.log("[Kanban] Created by:", createdBy);
+      } else {
+        console.log("[Kanban] No user object found in response");
       }
     } catch (error) {
       // Log error but don't fail card creation if user info fetch fails
       console.error("[Kanban] Error fetching user info:", error);
+      if (error instanceof Error) {
+        console.error("[Kanban] Error message:", error.message);
+        console.error("[Kanban] Error stack:", error.stack);
+      }
     }
 
     // Create card directly
