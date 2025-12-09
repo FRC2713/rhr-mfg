@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { Home, RefreshCw, User, LogIn, LogOut } from "lucide-react";
-import { isBasecampAuthenticated, isOnshapeAuthenticated } from "~/lib/session";
+import { isOnshapeAuthenticated } from "~/lib/session";
 
 function getBreadcrumbs(pathname: string) {
   const paths = pathname.split("/").filter(Boolean);
@@ -58,13 +58,11 @@ function getBreadcrumbs(pathname: string) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const basecampAuth = await isBasecampAuthenticated(request);
   const onshapeAuth = await isOnshapeAuthenticated(request);
 
   return {
-    basecampAuth,
     onshapeAuth,
-    isAuthenticated: basecampAuth && onshapeAuth,
+    isAuthenticated: onshapeAuth,
   };
 }
 
@@ -72,7 +70,7 @@ export default function Layout({ loaderData }: Route.ComponentProps) {
   const location = useLocation();
   const revalidator = useRevalidator();
   const breadcrumbs = getBreadcrumbs(location.pathname);
-  const { isAuthenticated, basecampAuth, onshapeAuth } = loaderData;
+  const { isAuthenticated, onshapeAuth } = loaderData;
 
   const handleRefresh = () => {
     revalidator.revalidate();
@@ -151,10 +149,6 @@ export default function Layout({ loaderData }: Route.ComponentProps) {
                     <div className="px-2 py-2 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <span className="h-2 w-2 rounded-full bg-green-500" />
-                        <span>Basecamp Connected</span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="h-2 w-2 rounded-full bg-green-500" />
                         <span>Onshape Connected</span>
                       </div>
                     </div>
@@ -168,14 +162,6 @@ export default function Layout({ loaderData }: Route.ComponentProps) {
                   </>
                 ) : (
                   <>
-                    {basecampAuth && (
-                      <div className="px-2 py-2 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full bg-green-500" />
-                          <span>Basecamp Connected</span>
-                        </div>
-                      </div>
-                    )}
                     {onshapeAuth && (
                       <div className="px-2 py-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
@@ -184,7 +170,7 @@ export default function Layout({ loaderData }: Route.ComponentProps) {
                         </div>
                       </div>
                     )}
-                    {(basecampAuth || onshapeAuth) && <DropdownMenuSeparator />}
+                    {onshapeAuth && <DropdownMenuSeparator />}
                     <DropdownMenuItem asChild>
                       <Link to="/signin" className="flex items-center">
                         <LogIn className="mr-2 h-4 w-4" />

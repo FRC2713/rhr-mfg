@@ -1,5 +1,5 @@
 /**
- * Map Basecamp column colors to Tailwind CSS classes
+ * Map column colors to Tailwind CSS classes
  */
 export function getColumnColorClasses(color: string | null | undefined): { bg: string; text: string } {
   if (!color) {

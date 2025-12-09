@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   getSession,
-  isBasecampAuthenticated,
   isOnshapeAuthenticated,
   commitSession,
 } from "~/lib/session";
@@ -21,11 +20,10 @@ export function meta({}: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   const session = await getSession(request);
 
-  // Check both Basecamp and Onshape authentication
+  // Check Onshape authentication
   const onshapeAuthenticated = await isOnshapeAuthenticated(request);
-  const basecampAuthenticated = await isBasecampAuthenticated(request);
 
-  if (!onshapeAuthenticated || !basecampAuthenticated) {
+  if (!onshapeAuthenticated) {
     const url = new URL(request.url);
     const fullPath = url.pathname + url.search;
     return redirect(`/signin?redirect=${encodeURIComponent(fullPath)}`);

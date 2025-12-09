@@ -1,22 +1,18 @@
 import type { Route } from "./+types/auth.status";
-import { isOnshapeAuthenticated, isBasecampAuthenticated } from "~/lib/session";
+import { isOnshapeAuthenticated } from "~/lib/session";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const onshapeAuthenticated = await isOnshapeAuthenticated(request);
-  const basecampAuthenticated = await isBasecampAuthenticated(request);
 
   return {
     onshape: {
       authenticated: onshapeAuthenticated,
     },
-    basecamp: {
-      authenticated: basecampAuthenticated,
-    },
   };
 }
 
 export default function AuthStatus({ loaderData }: Route.ComponentProps) {
-  const { onshape, basecamp } = loaderData;
+  const { onshape } = loaderData;
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -28,17 +24,6 @@ export default function AuthStatus({ loaderData }: Route.ComponentProps) {
             <h2 className="font-semibold mb-2">Onshape</h2>
             <p className="text-sm text-muted-foreground">
               {onshape.authenticated ? (
-                <span className="text-green-600">✓ Authenticated</span>
-              ) : (
-                <span className="text-red-600">✗ Not authenticated</span>
-              )}
-            </p>
-          </div>
-
-          <div className="p-4 border rounded-lg">
-            <h2 className="font-semibold mb-2">Basecamp</h2>
-            <p className="text-sm text-muted-foreground">
-              {basecamp.authenticated ? (
                 <span className="text-green-600">✓ Authenticated</span>
               ) : (
                 <span className="text-red-600">✗ Not authenticated</span>

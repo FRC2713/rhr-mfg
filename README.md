@@ -1,14 +1,14 @@
 # rhr-mfg
 
-A manufacturing management application that integrates Onshape CAD data with Basecamp project management. View parts, manage manufacturing tasks, track production states, and streamline your workflow.
+A manufacturing management application that integrates Onshape CAD data. View parts, track production states, and streamline your workflow.
 
 ## Features
 
-- 🔗 Onshape & Basecamp integration
+- 🔗 Onshape integration
 - 📦 Part management with thumbnails
 - 🏭 Manufacturing state tracking
-- 📊 Card table management
-- 🔒 OAuth authentication for both services
+- 📊 Kanban board management
+- 🔒 OAuth authentication for Onshape
 - 🎨 Modern UI with shadcn components
 - 🚀 Built with React Router v7
 

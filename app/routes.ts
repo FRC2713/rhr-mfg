@@ -2,9 +2,6 @@ import { type RouteConfig, index, route, layout } from "@react-router/dev/routes
 
 export default [
   // Auth routes (not in layout - no breadcrumbs)
-  route("auth", "routes/auth.tsx"),
-  route("auth/callback", "routes/auth.callback.tsx"),
-  route("auth/exchange", "routes/auth.exchange.tsx"),
   route("auth/logout", "routes/auth.logout.tsx"),
   route("auth/onshape", "routes/auth.onshape.tsx"),
   route("auth/onshape/callback", "routes/auth.onshape.callback.tsx"),
@@ -13,8 +10,6 @@ export default [
   // Layout route wrapping all other routes
   layout("routes/_layout.tsx", [
     index("routes/home.tsx"),
-    route("projects", "routes/projects.tsx"),
-    route("mfg/tasks", "routes/mfg.tasks.tsx"),
     route("mfg/parts", "routes/mfg.parts.tsx"),
     route("mfg/kanban", "routes/mfg.kanban.tsx"),
   ]),
