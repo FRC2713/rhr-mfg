@@ -1,6 +1,9 @@
-import type { ActionResponse } from "../utils/types";
 import { createCard, updateCard } from "~/lib/kanbanApi/cards";
-import { createOnshapeApiClient, sessionInfo } from "~/lib/onshapeApi/generated-wrapper";
+import {
+  createOnshapeApiClient,
+  sessionInfo,
+} from "~/lib/onshapeApi/generated-wrapper";
+import type { ActionResponse } from "../utils/types";
 
 /**
  * Handle adding a card to the Kanban board
@@ -38,32 +41,83 @@ export async function handleAddKanbanCard(
     let createdBy: string | undefined;
     try {
       const onshapeClient = await createOnshapeApiClient(request);
-      const userInfoResponse = await sessionInfo({ client: onshapeClient });
-      
-      console.log("[Kanban] User info response:", JSON.stringify(userInfoResponse, null, 2));
-      
-      // The response might be wrapped in a 'data' property or have a 'default' property
-      // Handle both cases: { data: { default: ... } } or { default: ... }
-      const userInfo = (userInfoResponse as any).data || userInfoResponse;
-      const user = userInfo?.default || userInfo;
-      
-      console.log("[Kanban] Extracted user object:", JSON.stringify(user, null, 2));
-      
-      if (user) {
-        const firstName = user.firstName;
-        const lastName = user.lastName;
-        
-        console.log("[Kanban] First name:", firstName, "Last name:", lastName);
-        
-        // Combine firstName and lastName, handling cases where one might be missing
-        const nameParts: string[] = [];
-        if (firstName) nameParts.push(firstName);
-        if (lastName) nameParts.push(lastName);
-        createdBy = nameParts.length > 0 ? nameParts.join(" ") : undefined;
-        
-        console.log("[Kanban] Created by:", createdBy);
+
+      // Use default responseStyle to get full response including status
+      const fullResponse = await sessionInfo({
+        client: onshapeClient,
+        throwOnError: false,
+      });
+
+      console.log(
+        "[Kanban] Full response:",
+        JSON.stringify(fullResponse, null, 2)
+      );
+
+      // Check response status and errors
+      if ((fullResponse as any).error) {
+        console.error(
+          "[Kanban] API returned error:",
+          (fullResponse as any).error
+        );
+      }
+
+      if ((fullResponse as any).response) {
+        const response = (fullResponse as any).response;
+        console.log("[Kanban] Response status:", response.status);
+        console.log("[Kanban] Response ok:", response.ok);
+
+        if (!response.ok) {
+          try {
+            const errorText = await response.clone().text();
+            console.error(
+              "[Kanban] API response not OK. Status:",
+              response.status,
+              "Error:",
+              errorText
+            );
+          } catch (e) {
+            console.error("[Kanban] Could not read error text:", e);
+          }
+        }
+      }
+
+      // Extract user data from response
+      const userData = (fullResponse as any).data;
+      console.log(
+        "[Kanban] Extracted data:",
+        JSON.stringify(userData, null, 2)
+      );
+
+      if (userData) {
+        // The data should be SessionInfoResponses which has a 'default' property
+        const user = userData.default || userData;
+
+        if (user && typeof user === "object" && !Array.isArray(user)) {
+          const firstName = user.firstName;
+          const lastName = user.lastName;
+
+          console.log(
+            "[Kanban] First name:",
+            firstName,
+            "Last name:",
+            lastName
+          );
+          console.log("[Kanban] User object keys:", Object.keys(user));
+
+          // Combine firstName and lastName, handling cases where one might be missing
+          const nameParts: string[] = [];
+          if (firstName) nameParts.push(firstName);
+          if (lastName) nameParts.push(lastName);
+          createdBy = nameParts.length > 0 ? nameParts.join(" ") : undefined;
+
+          console.log("[Kanban] Created by:", createdBy);
+        } else {
+          console.log("[Kanban] User data is not a valid object");
+        }
       } else {
-        console.log("[Kanban] No user object found in response");
+        console.log(
+          "[Kanban] No data in response - API call may have failed or returned null"
+        );
       }
     } catch (error) {
       // Log error but don't fail card creation if user info fetch fails
@@ -87,9 +141,12 @@ export async function handleAddKanbanCard(
     return { success: true, data: card };
   } catch (error) {
     console.error("[Kanban] Error adding card:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Failed to add card to tracker" 
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to add card to tracker",
     };
   }
 }
@@ -113,9 +170,9 @@ export async function handleMoveKanbanCard(
     return { success: true, data: card };
   } catch (error) {
     console.error("[Kanban] Error moving card:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Failed to move card" 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to move card",
     };
   }
 }
@@ -141,10 +198,10 @@ export async function handleUpdateKanbanDueDate(
     return { success: true, data: card };
   } catch (error) {
     console.error("[Kanban] Error updating due date:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Failed to update due date" 
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to update due date",
     };
   }
 }
-
