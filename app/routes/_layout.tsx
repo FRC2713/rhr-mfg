@@ -186,7 +186,9 @@ export default function Layout({ loaderData }: Route.ComponentProps) {
       </div>
 
       {/* Route content */}
-      <Outlet />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Outlet />
+      </div>
     </div>
   );
 }

@@ -94,31 +94,27 @@ export default function MfgKanban() {
 
   if (isLoading) {
     return (
-      <main className="container mx-auto px-4 py-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold">Kanban Board</h1>
-            <p className="text-muted-foreground">Loading configuration...</p>
-          </div>
+      <main className="flex h-full flex-1 flex-col">
+        <div className="border-b px-4 py-4">
+          <h1 className="text-3xl font-bold">Kanban Board</h1>
+          <p className="text-muted-foreground">Loading configuration...</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="container mx-auto px-4 py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Kanban Board</h1>
-          <p className="text-muted-foreground">
-            Configure your workflow columns
-          </p>
-        </div>
-
-        {config && (
-          <KanbanBoard config={config} onConfigChange={handleConfigChange} />
-        )}
+    <main className="flex h-full flex-1 flex-col overflow-hidden">
+      <div className="border-b px-4 py-4">
+        <h1 className="text-3xl font-bold">Kanban Board</h1>
+        <p className="text-muted-foreground">Configure your workflow columns</p>
       </div>
+
+      {config && (
+        <div className="flex-1 overflow-hidden">
+          <KanbanBoard config={config} onConfigChange={handleConfigChange} />
+        </div>
+      )}
     </main>
   );
 }

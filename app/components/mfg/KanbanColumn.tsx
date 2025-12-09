@@ -58,9 +58,9 @@ export function KanbanColumn({ column, cards, onRename, onDelete }: KanbanColumn
     <Card
       ref={setNodeRef}
       style={style}
-      className="min-w-[300px] flex-shrink-0"
+      className="min-w-[300px] flex-shrink-0 h-full flex flex-col"
     >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 flex-shrink-0">
         <div className="flex items-center gap-2 flex-1">
           <button
             {...attributes}
@@ -108,7 +108,7 @@ export function KanbanColumn({ column, cards, onRename, onDelete }: KanbanColumn
           </DialogContent>
         </Dialog>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 overflow-y-auto">
         {cards.length === 0 ? (
           <div className="text-sm text-muted-foreground text-center py-8">
             No cards yet

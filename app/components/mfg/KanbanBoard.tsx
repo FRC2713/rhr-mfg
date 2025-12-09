@@ -126,8 +126,8 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
   }, []);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between px-4 py-2 border-b">
         <div className="text-sm text-muted-foreground">
           {columns.length} {columns.length === 1 ? "column" : "columns"}
         </div>
@@ -137,38 +137,42 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
         </Button>
       </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={columns.map((col) => col.id)}
-          strategy={horizontalListSortingStrategy}
+      <div className="flex-1 overflow-hidden">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            {columns.map((column) => (
-              <KanbanColumn
-                key={column.id}
-                column={column}
-                cards={cardsByColumn[column.id] || []}
-                onRename={handleRenameColumn}
-                onDelete={handleDeleteColumn}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+          <SortableContext
+            items={columns.map((col) => col.id)}
+            strategy={horizontalListSortingStrategy}
+          >
+            <div className="h-full flex gap-4 overflow-x-auto px-4 py-4">
+              {columns.map((column) => (
+                <KanbanColumn
+                  key={column.id}
+                  column={column}
+                  cards={cardsByColumn[column.id] || []}
+                  onRename={handleRenameColumn}
+                  onDelete={handleDeleteColumn}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      </div>
 
       {columns.length === 0 && (
-        <div className="rounded-lg border border-dashed p-12 text-center">
-          <p className="text-muted-foreground mb-4">
-            No columns yet. Add your first column to get started.
-          </p>
-          <Button onClick={handleAddColumn}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Column
-          </Button>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="rounded-lg border border-dashed p-12 text-center">
+            <p className="text-muted-foreground mb-4">
+              No columns yet. Add your first column to get started.
+            </p>
+            <Button onClick={handleAddColumn}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Column
+            </Button>
+          </div>
         </div>
       )}
     </div>
