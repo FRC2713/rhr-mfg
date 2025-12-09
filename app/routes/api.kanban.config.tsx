@@ -1,4 +1,4 @@
-import { put, head } from "@vercel/blob";
+import { supabase } from "~/lib/supabase/client";
 
 export interface KanbanColumn {
   id: string;
@@ -9,8 +9,6 @@ export interface KanbanColumn {
 export interface KanbanConfig {
   columns: KanbanColumn[];
 }
-
-const BLOB_KEY = "kanban-config.json";
 
 // Default configuration
 const DEFAULT_CONFIG: KanbanConfig = {
@@ -24,33 +22,45 @@ const DEFAULT_CONFIG: KanbanConfig = {
 
 async function getConfig(): Promise<KanbanConfig> {
   try {
-    // Check if config exists
-    const response = await head(BLOB_KEY, {
-      token: process.env.RHR_MFG_DB_READ_WRITE_TOKEN,
-    });
+    const { data, error } = await supabase
+      .from("kanban_config")
+      .select("columns")
+      .eq("id", "default")
+      .single();
 
-    if (response.url) {
-      // Fetch the config
-      const configResponse = await fetch(response.url);
-      const config = await configResponse.json();
-      return config as KanbanConfig;
+    if (error || !data) {
+      console.log("[KANBAN CONFIG] No existing config found, using default");
+      return DEFAULT_CONFIG;
     }
-  } catch (error) {
-    console.log("[KANBAN CONFIG] No existing config found, using default");
-  }
 
-  return DEFAULT_CONFIG;
+    return {
+      columns: data.columns as KanbanColumn[],
+    };
+  } catch (error) {
+    console.log("[KANBAN CONFIG] Error fetching config:", error);
+    return DEFAULT_CONFIG;
+  }
 }
 
 async function saveConfig(config: KanbanConfig): Promise<void> {
-  const blob = await put(BLOB_KEY, JSON.stringify(config), {
-    access: "public",
-    token: process.env.RHR_MFG_DB_READ_WRITE_TOKEN,
-    addRandomSuffix: false, // Keep the same key
-    allowOverwrite: true, // Allow updating the existing config
-  });
+  const { error } = await supabase
+    .from("kanban_config")
+    .upsert(
+      {
+        id: "default",
+        columns: config.columns,
+      },
+      {
+        onConflict: "id",
+      }
+    );
 
-  console.log("[KANBAN CONFIG] Saved config to blob:", blob.url);
+  if (error) {
+    console.error("[KANBAN CONFIG] Error saving config:", error);
+    throw new Error(`Failed to save config: ${error.message}`);
+  }
+
+  console.log("[KANBAN CONFIG] Saved config to database");
 }
 
 export async function loader() {
@@ -85,6 +95,7 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ success: true, config });
   } catch (error) {
     console.error("[KANBAN CONFIG] Error saving config:", error);
-    return Response.json({ error: "Failed to save config" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "Failed to save config";
+    return Response.json({ error: errorMessage }, { status: 500 });
   }
 }

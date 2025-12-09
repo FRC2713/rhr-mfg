@@ -1,7 +1,5 @@
-import { head } from "@vercel/blob";
+import { supabase } from "~/lib/supabase/client";
 import type { KanbanConfig, KanbanColumn } from "./api.kanban.config";
-
-const BLOB_KEY = "kanban-config.json";
 
 // Default columns
 const DEFAULT_COLUMNS: KanbanColumn[] = [
@@ -13,22 +11,22 @@ const DEFAULT_COLUMNS: KanbanColumn[] = [
 
 async function getColumns(): Promise<KanbanColumn[]> {
   try {
-    // Check if config exists
-    const response = await head(BLOB_KEY, {
-      token: process.env.RHR_MFG_DB_READ_WRITE_TOKEN,
-    });
+    const { data, error } = await supabase
+      .from("kanban_config")
+      .select("columns")
+      .eq("id", "default")
+      .single();
 
-    if (response.url) {
-      // Fetch the config
-      const configResponse = await fetch(response.url);
-      const config = (await configResponse.json()) as KanbanConfig;
-      return config.columns;
+    if (error || !data) {
+      console.log("[KANBAN COLUMNS] No existing config found, using default");
+      return DEFAULT_COLUMNS;
     }
-  } catch (error) {
-    console.log("[KANBAN COLUMNS] No existing config found, using default");
-  }
 
-  return DEFAULT_COLUMNS;
+    return data.columns as KanbanColumn[];
+  } catch (error) {
+    console.log("[KANBAN COLUMNS] Error fetching columns:", error);
+    return DEFAULT_COLUMNS;
+  }
 }
 
 export async function loader() {
@@ -40,4 +38,3 @@ export async function loader() {
     return Response.json(DEFAULT_COLUMNS, { status: 500 });
   }
 }
-
