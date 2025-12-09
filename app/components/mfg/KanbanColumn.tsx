@@ -1,4 +1,5 @@
 import { useSortable } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -17,6 +18,10 @@ import {
   DialogTrigger,
 } from "~/components/ui/dialog";
 import { useState } from "react";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 
 interface KanbanColumnProps {
   column: KanbanColumnType;
@@ -31,11 +36,15 @@ export function KanbanColumn({ column, cards, onRename, onDelete }: KanbanColumn
   const {
     attributes,
     listeners,
-    setNodeRef,
+    setNodeRef: setColumnRef,
     transform,
     transition,
     isDragging,
   } = useSortable({ id: column.id });
+
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
+    id: column.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -54,11 +63,19 @@ export function KanbanColumn({ column, cards, onRename, onDelete }: KanbanColumn
     setIsDeleteDialogOpen(false);
   };
 
+  // Combine refs for both sortable (column) and droppable (cards)
+  const combinedRef = (node: HTMLElement | null) => {
+    setColumnRef(node);
+    setDroppableRef(node);
+  };
+
   return (
     <Card
-      ref={setNodeRef}
+      ref={combinedRef}
       style={style}
-      className="min-w-[300px] flex-shrink-0 h-full flex flex-col"
+      className={`min-w-[300px] flex-shrink-0 h-full flex flex-col ${
+        isOver ? "ring-2 ring-primary ring-offset-2" : ""
+      }`}
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 flex-shrink-0">
         <div className="flex items-center gap-2 flex-1">
@@ -109,17 +126,22 @@ export function KanbanColumn({ column, cards, onRename, onDelete }: KanbanColumn
         </Dialog>
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto">
-        {cards.length === 0 ? (
-          <div className="text-sm text-muted-foreground text-center py-8">
-            No cards yet
-          </div>
-        ) : (
-          <div className="space-y-0">
-            {cards.map((card) => (
-              <KanbanCard key={card.id} card={card} />
-            ))}
-          </div>
-        )}
+        <SortableContext
+          items={cards.map((card) => card.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {cards.length === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-8">
+              No cards yet
+            </div>
+          ) : (
+            <div className="space-y-0">
+              {cards.map((card) => (
+                <KanbanCard key={card.id} card={card} />
+              ))}
+            </div>
+          )}
+        </SortableContext>
       </CardContent>
     </Card>
   );

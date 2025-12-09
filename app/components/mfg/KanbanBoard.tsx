@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
   closestCenter,
@@ -17,6 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { Button } from "~/components/ui/button";
 import { Plus } from "lucide-react";
+import { toast } from "sonner";
 import { KanbanColumn } from "./KanbanColumn";
 import type { KanbanConfig, KanbanColumn as KanbanColumnType } from "~/routes/api.kanban.config";
 import type { KanbanCard } from "~/routes/api.kanban.cards/types";
@@ -29,9 +30,14 @@ interface KanbanBoardProps {
 export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
   const [columns, setColumns] = useState<KanbanColumnType[]>(config.columns);
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+  const queryClient = useQueryClient();
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before drag starts
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -51,6 +57,62 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
   });
 
   const cards = cardsData?.cards || [];
+
+  // Mutation to update card column
+  const moveCardMutation = useMutation({
+    mutationFn: async ({ cardId, columnId }: { cardId: string; columnId: string }) => {
+      const formData = new FormData();
+      formData.append("action", "moveCard");
+      formData.append("cardId", cardId);
+      formData.append("columnId", columnId);
+
+      const response = await fetch("/mfg/parts", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to move card");
+      }
+
+      return response.json();
+    },
+    onMutate: async ({ cardId, columnId }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["kanban-cards"] });
+
+      // Snapshot previous value
+      const previousCards = queryClient.getQueryData<{ cards: KanbanCard[] }>(["kanban-cards"]);
+
+      // Optimistically update
+      if (previousCards) {
+        queryClient.setQueryData<{ cards: KanbanCard[] }>(["kanban-cards"], {
+          cards: previousCards.cards.map((card) =>
+            card.id === cardId ? { ...card, columnId } : card
+          ),
+        });
+      }
+
+      return { previousCards };
+    },
+    onError: (error, variables, context) => {
+      // Rollback on error
+      if (context?.previousCards) {
+        queryClient.setQueryData(["kanban-cards"], context.previousCards);
+      }
+      toast.error("Failed to move card", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    },
+    onSuccess: () => {
+      toast.success("Card moved");
+    },
+    onSettled: () => {
+      // Refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ["kanban-cards"] });
+    },
+  });
 
   // Group cards by columnId
   const cardsByColumn = useMemo(() => {
@@ -96,13 +158,32 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (over && active.id !== over.id) {
-      setColumns((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
+    if (!over) return;
 
-        return arrayMove(items, oldIndex, newIndex);
-      });
+    // Check if we're dragging a card or a column
+    const isCard = cards.some((card) => card.id === active.id);
+    const isColumn = columns.some((col) => col.id === active.id);
+
+    if (isCard) {
+      // Handle card drag
+      const cardId = active.id as string;
+      const targetColumnId = over.id as string;
+
+      // Check if the card is being moved to a different column
+      const card = cards.find((c) => c.id === cardId);
+      if (card && card.columnId !== targetColumnId) {
+        moveCardMutation.mutate({ cardId, columnId: targetColumnId });
+      }
+    } else if (isColumn) {
+      // Handle column drag (reordering columns)
+      if (active.id !== over.id) {
+        setColumns((items) => {
+          const oldIndex = items.findIndex((item) => item.id === active.id);
+          const newIndex = items.findIndex((item) => item.id === over.id);
+
+          return arrayMove(items, oldIndex, newIndex);
+        });
+      }
     }
   };
 

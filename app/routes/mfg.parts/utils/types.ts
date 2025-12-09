@@ -19,6 +19,7 @@ export interface PartsQueryParams {
 export interface ActionResponse {
   success: boolean;
   error?: string;
+  data?: unknown;
   redirect?: string;
   headers?: {
     "Set-Cookie": string;
