@@ -30,6 +30,7 @@ export async function getCards(): Promise<KanbanCard[]> {
       machine: row.machine,
       dueDate: row.due_date,
       content: row.content,
+      createdBy: row.created_by,
     }));
   } catch (error) {
     console.error("[KANBAN CARDS] Error fetching cards:", error);
@@ -74,6 +75,7 @@ export async function createCard(cardData: {
   dueDate?: string;
   content?: string;
   id?: string;
+  createdBy?: string;
 }): Promise<KanbanCard> {
   // Get column ID for position 0
   const columnId = await getColumnIdByPosition(0);
@@ -101,6 +103,7 @@ export async function createCard(cardData: {
       machine: cardData.machine,
       due_date: cardData.dueDate,
       content: cardData.content,
+      created_by: cardData.createdBy,
     })
     .select()
     .single();
@@ -123,6 +126,7 @@ export async function createCard(cardData: {
     machine: data.machine,
     dueDate: data.due_date,
     content: data.content,
+    createdBy: data.created_by,
   };
 }
 
@@ -179,6 +183,7 @@ export async function updateCard(
     machine: data.machine,
     dueDate: data.due_date,
     content: data.content,
+    createdBy: data.created_by,
   };
 }
 
@@ -218,5 +223,6 @@ export async function deleteCard(cardId: string): Promise<KanbanCard> {
     machine: cardData.machine,
     dueDate: cardData.due_date,
     content: cardData.content,
+    createdBy: cardData.created_by,
   };
 }

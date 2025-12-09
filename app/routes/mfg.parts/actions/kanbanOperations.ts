@@ -1,11 +1,13 @@
 import type { ActionResponse } from "../utils/types";
 import { createCard, updateCard } from "~/lib/kanbanApi/cards";
+import { createOnshapeApiClient, sessionInfo } from "~/lib/onshapeApi/generated-wrapper";
 
 /**
  * Handle adding a card to the Kanban board
  */
 export async function handleAddKanbanCard(
-  formData: FormData
+  formData: FormData,
+  request: Request
 ): Promise<ActionResponse> {
   const partNumber = formData.get("partNumber")?.toString();
   if (!partNumber) {
@@ -32,6 +34,27 @@ export async function handleAddKanbanCard(
       imageUrl = `/api/onshape/thumbnail?${params.toString()}`;
     }
 
+    // Get user information from Onshape
+    let createdBy: string | undefined;
+    try {
+      const onshapeClient = await createOnshapeApiClient(request);
+      const userInfo = await sessionInfo({ client: onshapeClient });
+      
+      if (userInfo.default) {
+        const firstName = userInfo.default.firstName;
+        const lastName = userInfo.default.lastName;
+        
+        // Combine firstName and lastName, handling cases where one might be missing
+        const nameParts: string[] = [];
+        if (firstName) nameParts.push(firstName);
+        if (lastName) nameParts.push(lastName);
+        createdBy = nameParts.length > 0 ? nameParts.join(" ") : undefined;
+      }
+    } catch (error) {
+      // Log error but don't fail card creation if user info fetch fails
+      console.error("[Kanban] Error fetching user info:", error);
+    }
+
     // Create card directly
     const card = await createCard({
       title: partNumber,
@@ -39,6 +62,7 @@ export async function handleAddKanbanCard(
       assignee: "Unassigned",
       material: "TBD",
       machine: "TBD",
+      createdBy,
     });
 
     return { success: true, data: card };

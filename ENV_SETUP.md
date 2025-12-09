@@ -37,7 +37,8 @@ CREATE TABLE kanban_cards (
   material TEXT,
   machine TEXT,
   due_date TEXT,
-  content TEXT
+  content TEXT,
+  created_by TEXT
 );
 
 CREATE INDEX idx_kanban_cards_column_id ON kanban_cards(column_id);

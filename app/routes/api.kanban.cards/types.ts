@@ -10,6 +10,7 @@ export interface KanbanCard {
   machine?: string;
   dueDate?: string; // ISO 8601 format - optional due date
   content?: string; // Markdown format - optional notes/description
+  createdBy?: string; // First and last name of user who created the card
 }
 
 export interface KanbanCardsData {

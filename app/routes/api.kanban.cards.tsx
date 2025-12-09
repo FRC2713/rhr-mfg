@@ -45,6 +45,7 @@ export async function action({ request }: { request: Request }) {
       machine: body.machine,
       dueDate: body.dueDate,
       content: body.content,
+      createdBy: body.createdBy,
     });
 
     return Response.json({ card: newCard }, { status: 201 });

@@ -14,7 +14,7 @@ export async function action({ request }: Route.ActionArgs) {
   if (actionType === "addCard" || actionType === "moveCard" || actionType === "updateDueDate") {
     try {
       if (actionType === "addCard") {
-        return await handleAddKanbanCard(formData);
+        return await handleAddKanbanCard(formData, request);
       } else if (actionType === "moveCard") {
         return await handleMoveKanbanCard(formData);
       } else if (actionType === "updateDueDate") {
