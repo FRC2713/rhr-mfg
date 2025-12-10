@@ -4,15 +4,24 @@ import { Input } from "~/components/ui/input";
 interface KanbanColumnHeaderProps {
   title: string;
   onRename: (newTitle: string) => void;
+  isEditing?: boolean;
+  onEditStart?: () => void;
+  onEditEnd?: () => void;
 }
 
 export function KanbanColumnHeader({
   title,
   onRename,
+  isEditing: externalIsEditing,
+  onEditStart,
+  onEditEnd,
 }: KanbanColumnHeaderProps) {
-  const [isEditing, setIsEditing] = useState(false);
+  const [internalIsEditing, setInternalIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(title);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Use external editing state if provided, otherwise use internal
+  const isEditing = externalIsEditing ?? internalIsEditing;
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -21,9 +30,20 @@ export function KanbanColumnHeader({
     }
   }, [isEditing]);
 
+  // Sync edit value when title changes or editing starts
+  useEffect(() => {
+    if (isEditing) {
+      setEditValue(title);
+    }
+  }, [isEditing, title]);
+
   const handleStartEdit = () => {
     setEditValue(title);
-    setIsEditing(true);
+    if (onEditStart) {
+      onEditStart();
+    } else {
+      setInternalIsEditing(true);
+    }
   };
 
   const handleSave = () => {
@@ -32,12 +52,20 @@ export function KanbanColumnHeader({
     } else {
       setEditValue(title);
     }
-    setIsEditing(false);
+    if (onEditEnd) {
+      onEditEnd();
+    } else {
+      setInternalIsEditing(false);
+    }
   };
 
   const handleCancel = () => {
     setEditValue(title);
-    setIsEditing(false);
+    if (onEditEnd) {
+      onEditEnd();
+    } else {
+      setInternalIsEditing(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -56,7 +84,7 @@ export function KanbanColumnHeader({
         onChange={(e) => setEditValue(e.target.value)}
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
-        className="h-8 font-semibold"
+        className="h-7 bg-background font-semibold"
       />
     );
   }
@@ -64,10 +92,9 @@ export function KanbanColumnHeader({
   return (
     <button
       onClick={handleStartEdit}
-      className="text-left font-semibold hover:text-primary transition-colors flex-1"
+      className="flex-1 truncate text-left font-semibold transition-colors hover:text-primary"
     >
       {title}
     </button>
   );
 }
-

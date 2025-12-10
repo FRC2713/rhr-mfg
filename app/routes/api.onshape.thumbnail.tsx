@@ -2,15 +2,57 @@ import type { Route } from "./+types/api.onshape.thumbnail";
 import { getValidOnshapeToken } from "~/lib/tokenRefresh";
 
 /**
+ * Build Onshape thumbnail URL from individual parameters
+ */
+function buildOnshapeThumbnailUrl(params: {
+  documentId: string;
+  instanceType: string;
+  instanceId: string;
+  elementId: string;
+  partId: string;
+}): string {
+  const { documentId, instanceType, instanceId, elementId, partId } = params;
+  // Use the Onshape API v10 thumbnail endpoint format
+  // wvm = workspace/version/microversion type indicator
+  const wvm = instanceType === "w" ? "w" : instanceType === "v" ? "v" : "m";
+  return `https://cad.onshape.com/api/v10/thumbnails/d/${documentId}/${wvm}/${instanceId}/e/${elementId}/p/${encodeURIComponent(partId)}?outputFormat=PNG&pixelSize=300`;
+}
+
+/**
  * Proxy endpoint for Onshape thumbnails
  * This allows us to fetch thumbnails with authentication
+ * 
+ * Supports two modes:
+ * 1. Pass a full Onshape thumbnail URL via `url` param
+ * 2. Pass individual params: documentId, instanceType, instanceId, elementId, partId
  */
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
-  const thumbnailUrl = url.searchParams.get("url");
+  
+  // Try to get the full URL first
+  let thumbnailUrl = url.searchParams.get("url");
+  
+  // If no URL provided, try to build from individual parameters
+  if (!thumbnailUrl) {
+    const documentId = url.searchParams.get("documentId");
+    const instanceType = url.searchParams.get("instanceType") || "w";
+    const instanceId = url.searchParams.get("instanceId");
+    const elementId = url.searchParams.get("elementId");
+    const partId = url.searchParams.get("partId");
+    
+    if (documentId && instanceId && elementId && partId) {
+      thumbnailUrl = buildOnshapeThumbnailUrl({
+        documentId,
+        instanceType,
+        instanceId,
+        elementId,
+        partId,
+      });
+    }
+  }
 
   if (!thumbnailUrl) {
-    return new Response("Missing thumbnail URL", { status: 400 });
+    return new Response("Missing thumbnail URL or required parameters (documentId, instanceId, elementId, partId)", { status: 400 });
   }
 
   try {

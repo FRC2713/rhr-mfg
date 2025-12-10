@@ -16,9 +16,11 @@ import {
   sortableKeyboardCoordinates,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Button } from "~/components/ui/button";
-import { Plus } from "lucide-react";
+import { Columns3, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "~/components/ui/button";
+import { Badge } from "~/components/ui/badge";
+import { Skeleton } from "~/components/ui/skeleton";
 import { KanbanColumn } from "./KanbanColumn";
 import { KanbanCard as KanbanCardComponent } from "./KanbanCard";
 import type {
@@ -50,7 +52,9 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
   );
 
   // Fetch cards
-  const { data: cardsData } = useQuery<{ cards: KanbanCard[] }>({
+  const { data: cardsData, isLoading: isLoadingCards } = useQuery<{
+    cards: KanbanCard[];
+  }>({
     queryKey: ["kanban-cards"],
     queryFn: async () => {
       const response = await fetch("/api/kanban/cards");
@@ -236,19 +240,79 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
     setColumns((prev) => prev.filter((col) => col.id !== id));
   }, []);
 
+  // Empty state
+  if (columns.length === 0) {
+    return (
+      <div className="flex h-full flex-col">
+        {/* Header */}
+        <div className="bg-muted/30 flex items-center justify-between border-b px-6 py-3">
+          <div className="flex items-center gap-3">
+            <div className="text-muted-foreground flex items-center gap-2 text-sm">
+              <Columns3 className="size-4" />
+              <span>0 columns</span>
+            </div>
+            <Badge variant="secondary" className="tabular-nums">
+              {cards.length} cards
+            </Badge>
+          </div>
+        </div>
+
+        {/* Empty State */}
+        <div className="bg-muted/10 flex flex-1 items-center justify-center p-8">
+          <div className="bg-card flex max-w-md flex-col items-center rounded-2xl border-2 border-dashed p-12 text-center shadow-sm">
+            <div className="bg-muted mb-4 rounded-full p-4">
+              <Columns3 className="text-muted-foreground size-8" />
+            </div>
+            <h3 className="mb-2 text-lg font-semibold">No columns yet</h3>
+            <p className="text-muted-foreground mb-6 text-sm">
+              Create your first column to start organizing your workflow. You
+              can add, rename, and reorder columns as needed.
+            </p>
+            <Button onClick={handleAddColumn} size="lg">
+              <Plus className="mr-2 size-5" />
+              Create First Column
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-4 py-2">
-        <div className="text-muted-foreground text-sm">
-          {columns.length} {columns.length === 1 ? "column" : "columns"}
+      {/* Board Header */}
+      <div className="bg-muted/30 flex items-center justify-between border-b px-6 py-3">
+        <div className="flex items-center gap-3">
+          <div className="text-muted-foreground flex items-center gap-2 text-sm">
+            <Columns3 className="size-4" />
+            <span>
+              {columns.length} {columns.length === 1 ? "column" : "columns"}
+            </span>
+          </div>
+          <Badge variant="secondary" className="tabular-nums">
+            {cards.length} {cards.length === 1 ? "card" : "cards"}
+          </Badge>
+          {isLoadingCards && (
+            <Loader2 className="text-muted-foreground size-4 animate-spin" />
+          )}
         </div>
-        <Button onClick={handleAddColumn} size="sm">
-          <Plus className="mr-2 h-4 w-4" />
+        <Button onClick={handleAddColumn} size="sm" variant="outline">
+          <Plus className="mr-2 size-4" />
           Add Column
         </Button>
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      {/* Board Content */}
+      <div className="relative flex-1 overflow-hidden">
+        {/* Subtle grid background */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.015]"
+          style={{
+            backgroundImage: `radial-gradient(circle, currentColor 1px, transparent 1px)`,
+            backgroundSize: "24px 24px",
+          }}
+        />
+
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -259,7 +323,7 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
             items={columns.map((col) => col.id)}
             strategy={horizontalListSortingStrategy}
           >
-            <div className="flex h-full gap-4 overflow-x-auto px-4 py-4">
+            <div className="flex h-full gap-4 overflow-x-auto p-6">
               {columns.map((column) => (
                 <KanbanColumn
                   key={column.id}
@@ -269,31 +333,71 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
                   onDelete={handleDeleteColumn}
                 />
               ))}
+
+              {/* Quick add column button at the end */}
+              <button
+                onClick={handleAddColumn}
+                className="border-muted-foreground/20 bg-muted/20 text-muted-foreground hover:border-muted-foreground/40 hover:bg-muted/40 hover:text-foreground flex h-full w-[320px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-all"
+              >
+                <Plus className="size-6" />
+                <span className="text-sm font-medium">Add Column</span>
+              </button>
             </div>
           </SortableContext>
+
           <DragOverlay>
             {activeCard ? (
-              <div className="rotate-3 opacity-90" style={{ width: "300px" }}>
+              <div className="rotate-3 opacity-95" style={{ width: "300px" }}>
                 <KanbanCardComponent card={activeCard} />
               </div>
             ) : null}
           </DragOverlay>
         </DndContext>
       </div>
+    </div>
+  );
+}
 
-      {columns.length === 0 && (
-        <div className="flex flex-1 items-center justify-center">
-          <div className="rounded-lg border border-dashed p-12 text-center">
-            <p className="text-muted-foreground mb-4">
-              No columns yet. Add your first column to get started.
-            </p>
-            <Button onClick={handleAddColumn}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Column
-            </Button>
-          </div>
+/**
+ * Loading skeleton for the kanban board
+ */
+export function KanbanBoardSkeleton() {
+  return (
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="bg-muted/30 flex items-center justify-between border-b px-6 py-3">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-5 w-16" />
         </div>
-      )}
+        <Skeleton className="h-9 w-28" />
+      </div>
+
+      {/* Content */}
+      <div className="flex flex-1 gap-4 overflow-hidden p-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className="bg-card flex h-full w-[320px] shrink-0 flex-col rounded-xl border"
+          >
+            <div className="bg-muted/30 flex items-center gap-2 border-b px-3 py-3">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-5 w-8 rounded-full" />
+            </div>
+            <div className="flex-1 space-y-3 p-3">
+              {[1, 2, 3].slice(0, Math.ceil(Math.random() * 3)).map((j) => (
+                <Skeleton
+                  key={j}
+                  className="h-24 w-full rounded-lg"
+                  style={{
+                    animationDelay: `${(i + j) * 100}ms`,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
