@@ -230,7 +230,22 @@ export function KanbanBoard({
     if (isCard) {
       // Handle card drag
       const cardId = active.id as string;
-      const targetColumnId = over.id as string;
+      let targetColumnId = over.id as string;
+
+      // Check if over.id is a card id (card dragged over another card)
+      // If so, find the column that contains that card
+      const overCard = cards.find((c) => c.id === over.id);
+      if (overCard) {
+        targetColumnId = overCard.columnId;
+      } else {
+        // Check if over.id is a column id
+        const overColumn = columns.find((col) => col.id === over.id);
+        if (!overColumn) {
+          // If it's neither a card nor a column, we can't determine the target
+          return;
+        }
+        // targetColumnId is already set to the column id
+      }
 
       // Check if the card is being moved to a different column
       const card = cards.find((c) => c.id === cardId);
