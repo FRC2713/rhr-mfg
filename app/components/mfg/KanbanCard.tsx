@@ -28,6 +28,38 @@ import {
 } from "~/components/ui/sheet";
 import type { KanbanCard as KanbanCardType } from "~/routes/api.kanban.cards/types";
 
+/**
+ * Format a date string for display
+ * Returns "Invalid date" for invalid date strings
+ */
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    return "Invalid date";
+  }
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/**
+ * Delete a card via the API
+ */
+async function deleteCardRequest(cardId: string): Promise<unknown> {
+  const response = await fetch(`/api/kanban/cards/${cardId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || "Failed to delete card");
+  }
+
+  return response.json();
+}
+
 interface KanbanCardProps {
   card: KanbanCardType;
 }
@@ -52,33 +84,15 @@ export function KanbanCard({ card }: KanbanCardProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
   const handleInfoClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
 
-  // Delete card mutation
+  // Delete card mutation with retry logic
   const deleteCardMutation = useMutation({
-    mutationFn: async (cardId: string) => {
-      const response = await fetch(`/api/kanban/cards/${cardId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to delete card");
-      }
-
-      return response.json();
-    },
+    mutationFn: deleteCardRequest,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["kanban-cards"] });
       toast.success("Card deleted");

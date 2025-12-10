@@ -5,7 +5,14 @@ export async function loader({ request }: { request: Request }) {
     const url = new URL(request.url);
     const columnId = url.searchParams.get("columnId");
 
-    let cards = await getCards();
+    const result = await getCards();
+
+    if (result.error) {
+      console.error("[KANBAN CARDS] Error loading cards:", result.error);
+      return Response.json({ cards: [], error: result.error }, { status: 500 });
+    }
+
+    let cards = result.cards;
 
     // Filter by columnId if provided
     if (columnId) {

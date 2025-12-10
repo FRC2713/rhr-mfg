@@ -34,7 +34,7 @@ async function getConfig(): Promise<KanbanConfig> {
     }
 
     return {
-      columns: data.columns as KanbanColumn[],
+      columns: data.columns as unknown as KanbanColumn[],
     };
   } catch (error) {
     console.log("[KANBAN CONFIG] Error fetching config:", error);
@@ -43,17 +43,16 @@ async function getConfig(): Promise<KanbanConfig> {
 }
 
 async function saveConfig(config: KanbanConfig): Promise<void> {
-  const { error } = await supabase
-    .from("kanban_config")
-    .upsert(
-      {
-        id: "default",
-        columns: config.columns,
-      },
-      {
-        onConflict: "id",
-      }
-    );
+  const { error } = await supabase.from("kanban_config").upsert(
+    {
+      id: "default",
+      // Cast columns array to Json type expected by Supabase
+      columns: JSON.parse(JSON.stringify(config.columns)),
+    },
+    {
+      onConflict: "id",
+    }
+  );
 
   if (error) {
     console.error("[KANBAN CONFIG] Error saving config:", error);

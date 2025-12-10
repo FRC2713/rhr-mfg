@@ -2,8 +2,14 @@ import { getCards, updateCard, deleteCard } from "~/lib/kanbanApi/cards";
 
 export async function loader({ params }: { params: { id: string } }) {
   try {
-    const cards = await getCards();
-    const card = cards.find((c) => c.id === params.id);
+    const result = await getCards();
+
+    if (result.error) {
+      console.error("[KANBAN CARD] Error loading cards:", result.error);
+      return Response.json({ error: result.error }, { status: 500 });
+    }
+
+    const card = result.cards.find((c) => c.id === params.id);
 
     if (!card) {
       return Response.json({ error: "Card not found" }, { status: 404 });

@@ -22,7 +22,7 @@ async function getColumns(): Promise<KanbanColumn[]> {
       return DEFAULT_COLUMNS;
     }
 
-    return data.columns as KanbanColumn[];
+    return data.columns as unknown as KanbanColumn[];
   } catch (error) {
     console.log("[KANBAN COLUMNS] Error fetching columns:", error);
     return DEFAULT_COLUMNS;

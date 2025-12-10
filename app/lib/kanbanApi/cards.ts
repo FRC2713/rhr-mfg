@@ -1,11 +1,44 @@
 import { supabase } from "~/lib/supabase/client";
+import type {
+  KanbanCardRow,
+  KanbanCardUpdate,
+  KanbanColumnConfig,
+} from "~/lib/supabase/database.types";
 import type { KanbanCard } from "~/routes/api.kanban.cards/types";
-import type { KanbanConfig } from "~/routes/api.kanban.config";
+
+/**
+ * Maps a database row (snake_case) to a KanbanCard (camelCase)
+ */
+function mapRowToCard(row: KanbanCardRow): KanbanCard {
+  return {
+    id: row.id,
+    columnId: row.column_id,
+    title: row.title,
+    imageUrl: row.image_url ?? undefined,
+    assignee: row.assignee ?? undefined,
+    dateCreated: row.date_created,
+    dateUpdated: row.date_updated,
+    material: row.material ?? undefined,
+    machine: row.machine ?? undefined,
+    dueDate: row.due_date ?? undefined,
+    content: row.content ?? undefined,
+    createdBy: row.created_by ?? undefined,
+  };
+}
+
+/**
+ * Result type for getCards to distinguish errors from empty results
+ */
+export interface GetCardsResult {
+  cards: KanbanCard[];
+  error?: string;
+}
 
 /**
  * Get all cards from Supabase database
+ * Returns both cards and potential error for proper error handling
  */
-export async function getCards(): Promise<KanbanCard[]> {
+export async function getCards(): Promise<GetCardsResult> {
   try {
     const { data, error } = await supabase
       .from("kanban_cards")
@@ -14,34 +47,24 @@ export async function getCards(): Promise<KanbanCard[]> {
 
     if (error) {
       console.error("[KANBAN CARDS] Error fetching cards:", error);
-      return [];
+      return { cards: [], error: error.message };
     }
 
-    // Map database columns (snake_case) to TypeScript interface (camelCase)
-    return (data || []).map((row) => ({
-      id: row.id,
-      columnId: row.column_id,
-      title: row.title,
-      imageUrl: row.image_url,
-      assignee: row.assignee,
-      dateCreated: row.date_created,
-      dateUpdated: row.date_updated,
-      material: row.material,
-      machine: row.machine,
-      dueDate: row.due_date,
-      content: row.content,
-      createdBy: row.created_by,
-    }));
+    return { cards: (data || []).map(mapRowToCard) };
   } catch (error) {
-    console.error("[KANBAN CARDS] Error fetching cards:", error);
-    return [];
+    const message =
+      error instanceof Error ? error.message : "Unknown error fetching cards";
+    console.error("[KANBAN CARDS] Error fetching cards:", message);
+    return { cards: [], error: message };
   }
 }
 
 /**
  * Get a column ID by its position
  */
-export async function getColumnIdByPosition(position: number): Promise<string | null> {
+export async function getColumnIdByPosition(
+  position: number
+): Promise<string | null> {
   try {
     const { data, error } = await supabase
       .from("kanban_config")
@@ -54,8 +77,8 @@ export async function getColumnIdByPosition(position: number): Promise<string | 
       return "backlog";
     }
 
-    const config = data.columns as KanbanConfig["columns"];
-    const column = config.find((col) => col.position === position);
+    const columns = data.columns as unknown as KanbanColumnConfig[];
+    const column = columns.find((col) => col.position === position);
     return column?.id || "backlog";
   } catch (error) {
     console.log("[KANBAN CARDS] Error fetching config for column lookup");
@@ -64,9 +87,9 @@ export async function getColumnIdByPosition(position: number): Promise<string | 
 }
 
 /**
- * Create a new Kanban card
+ * Input type for creating a card
  */
-export async function createCard(cardData: {
+export interface CreateCardInput {
   title: string;
   imageUrl?: string;
   assignee?: string;
@@ -76,7 +99,14 @@ export async function createCard(cardData: {
   content?: string;
   id?: string;
   createdBy?: string;
-}): Promise<KanbanCard> {
+}
+
+/**
+ * Create a new Kanban card
+ */
+export async function createCard(
+  cardData: CreateCardInput
+): Promise<KanbanCard> {
   // Get column ID for position 0
   const columnId = await getColumnIdByPosition(0);
 
@@ -88,22 +118,21 @@ export async function createCard(cardData: {
   const now = new Date().toISOString();
   const cardId = cardData.id || `card-${Date.now()}`;
 
-  // Map TypeScript interface (camelCase) to database columns (snake_case)
   const { data, error } = await supabase
     .from("kanban_cards")
     .insert({
       id: cardId,
       column_id: columnId,
       title: cardData.title,
-      image_url: cardData.imageUrl,
-      assignee: cardData.assignee,
+      image_url: cardData.imageUrl ?? null,
+      assignee: cardData.assignee ?? null,
       date_created: now,
       date_updated: now,
-      material: cardData.material,
-      machine: cardData.machine,
-      due_date: cardData.dueDate,
-      content: cardData.content,
-      created_by: cardData.createdBy,
+      material: cardData.material ?? null,
+      machine: cardData.machine ?? null,
+      due_date: cardData.dueDate ?? null,
+      content: cardData.content ?? null,
+      created_by: cardData.createdBy ?? null,
     })
     .select()
     .single();
@@ -113,21 +142,35 @@ export async function createCard(cardData: {
     throw new Error(`Failed to create card: ${error.message}`);
   }
 
-  // Map back to TypeScript interface
-  return {
-    id: data.id,
-    columnId: data.column_id,
-    title: data.title,
-    imageUrl: data.image_url,
-    assignee: data.assignee,
-    dateCreated: data.date_created,
-    dateUpdated: data.date_updated,
-    material: data.material,
-    machine: data.machine,
-    dueDate: data.due_date,
-    content: data.content,
-    createdBy: data.created_by,
+  return mapRowToCard(data);
+}
+
+/**
+ * Build database update object from camelCase updates
+ */
+function buildDbUpdates(
+  updates: Partial<Omit<KanbanCard, "id" | "dateCreated">>
+): KanbanCardUpdate {
+  const dbUpdates: KanbanCardUpdate = {
+    date_updated: new Date().toISOString(),
   };
+
+  if (updates.columnId !== undefined) dbUpdates.column_id = updates.columnId;
+  if (updates.title !== undefined) dbUpdates.title = updates.title;
+  if (updates.imageUrl !== undefined)
+    dbUpdates.image_url = updates.imageUrl ?? null;
+  if (updates.assignee !== undefined)
+    dbUpdates.assignee = updates.assignee ?? null;
+  if (updates.material !== undefined)
+    dbUpdates.material = updates.material ?? null;
+  if (updates.machine !== undefined)
+    dbUpdates.machine = updates.machine ?? null;
+  if (updates.dueDate !== undefined)
+    dbUpdates.due_date = updates.dueDate ?? null;
+  if (updates.content !== undefined)
+    dbUpdates.content = updates.content ?? null;
+
+  return dbUpdates;
 }
 
 /**
@@ -137,19 +180,7 @@ export async function updateCard(
   cardId: string,
   updates: Partial<Omit<KanbanCard, "id" | "dateCreated">>
 ): Promise<KanbanCard> {
-  // Map TypeScript interface updates to database columns
-  const dbUpdates: Record<string, unknown> = {
-    date_updated: new Date().toISOString(),
-  };
-
-  if (updates.columnId !== undefined) dbUpdates.column_id = updates.columnId;
-  if (updates.title !== undefined) dbUpdates.title = updates.title;
-  if (updates.imageUrl !== undefined) dbUpdates.image_url = updates.imageUrl;
-  if (updates.assignee !== undefined) dbUpdates.assignee = updates.assignee;
-  if (updates.material !== undefined) dbUpdates.material = updates.material;
-  if (updates.machine !== undefined) dbUpdates.machine = updates.machine;
-  if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
-  if (updates.content !== undefined) dbUpdates.content = updates.content;
+  const dbUpdates = buildDbUpdates(updates);
 
   const { data, error } = await supabase
     .from("kanban_cards")
@@ -170,59 +201,33 @@ export async function updateCard(
     throw new Error("Card not found");
   }
 
-  // Map back to TypeScript interface
-  return {
-    id: data.id,
-    columnId: data.column_id,
-    title: data.title,
-    imageUrl: data.image_url,
-    assignee: data.assignee,
-    dateCreated: data.date_created,
-    dateUpdated: data.date_updated,
-    material: data.material,
-    machine: data.machine,
-    dueDate: data.due_date,
-    content: data.content,
-    createdBy: data.created_by,
-  };
+  return mapRowToCard(data);
 }
 
 /**
  * Delete a Kanban card
+ * Uses .delete().select() to atomically delete and return the card
  */
 export async function deleteCard(cardId: string): Promise<KanbanCard> {
-  // First, get the card to return it
-  const { data: cardData, error: fetchError } = await supabase
+  // Atomically delete and return the card in one operation
+  const { data, error } = await supabase
     .from("kanban_cards")
-    .select("*")
+    .delete()
     .eq("id", cardId)
+    .select()
     .single();
-
-  if (fetchError || !cardData) {
-    throw new Error("Card not found");
-  }
-
-  // Delete the card
-  const { error } = await supabase.from("kanban_cards").delete().eq("id", cardId);
 
   if (error) {
     console.error("[KANBAN CARDS] Error deleting card:", error);
+    if (error.code === "PGRST116") {
+      throw new Error("Card not found");
+    }
     throw new Error(`Failed to delete card: ${error.message}`);
   }
 
-  // Map back to TypeScript interface
-  return {
-    id: cardData.id,
-    columnId: cardData.column_id,
-    title: cardData.title,
-    imageUrl: cardData.image_url,
-    assignee: cardData.assignee,
-    dateCreated: cardData.date_created,
-    dateUpdated: cardData.date_updated,
-    material: cardData.material,
-    machine: cardData.machine,
-    dueDate: cardData.due_date,
-    content: cardData.content,
-    createdBy: cardData.created_by,
-  };
+  if (!data) {
+    throw new Error("Card not found");
+  }
+
+  return mapRowToCard(data);
 }

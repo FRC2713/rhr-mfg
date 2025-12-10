@@ -1,7 +1,115 @@
+import { z } from "zod";
 import { createCard, updateCard } from "~/lib/kanbanApi/cards";
+import { logger } from "~/lib/logger";
 import { onshapeApiRequest } from "~/lib/onshapeApi/auth";
 import { getValidOnshapeToken } from "~/lib/tokenRefresh";
 import type { ActionResponse } from "../utils/types";
+
+/**
+ * Onshape user response from /users/current endpoint
+ */
+interface OnshapeUser {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  name?: string;
+}
+
+/**
+ * Zod schema for adding a card to the Kanban board
+ */
+const addCardSchema = z.object({
+  partNumber: z.string().min(1, "Part number is required"),
+  documentId: z.string().optional(),
+  instanceType: z.string().default("w"),
+  instanceId: z.string().optional(),
+  elementId: z.string().optional(),
+  partId: z.string().optional(),
+});
+
+/**
+ * Zod schema for moving a card between columns
+ */
+const moveCardSchema = z.object({
+  cardId: z.string().min(1, "Card ID is required"),
+  columnId: z.string().min(1, "Column ID is required"),
+});
+
+/**
+ * Zod schema for updating a card's due date
+ */
+const updateDueDateSchema = z.object({
+  cardId: z.string().min(1, "Card ID is required"),
+  dueDate: z.string().optional(),
+});
+
+/**
+ * Extract string value from FormData safely
+ * Returns undefined for File entries or null values
+ */
+function getStringValue(formData: FormData, key: string): string | undefined {
+  const value = formData.get(key);
+  if (value === null || value instanceof File) {
+    return undefined;
+  }
+  return value;
+}
+
+/**
+ * Parse FormData into an object for Zod validation
+ */
+function formDataToObject(
+  formData: FormData,
+  keys: string[]
+): Record<string, string | undefined> {
+  const obj: Record<string, string | undefined> = {};
+  for (const key of keys) {
+    obj[key] = getStringValue(formData, key);
+  }
+  return obj;
+}
+
+/**
+ * Fetch current user info from Onshape API
+ */
+async function fetchOnshapeUserInfo(
+  request: Request
+): Promise<string | undefined> {
+  try {
+    const accessToken = await getValidOnshapeToken(request);
+
+    if (!accessToken) {
+      logger.debug("[Kanban] No access token available");
+      return undefined;
+    }
+
+    const response = await onshapeApiRequest(accessToken, "/users/current");
+
+    if (!response.ok) {
+      const errorText = await response
+        .text()
+        .catch(() => "Unable to read error");
+      logger.error(
+        `[Kanban] API response not OK. Status: ${response.status}, Error: ${errorText}`
+      );
+      return undefined;
+    }
+
+    const user = (await response.json()) as OnshapeUser;
+    logger.debug("[Kanban] User data received");
+
+    // Combine firstName and lastName
+    const nameParts: string[] = [];
+    if (user.firstName) nameParts.push(user.firstName);
+    if (user.lastName) nameParts.push(user.lastName);
+
+    return nameParts.length > 0 ? nameParts.join(" ") : undefined;
+  } catch (error) {
+    logger.error("[Kanban] Error fetching user info:", error);
+    return undefined;
+  }
+}
 
 /**
  * Handle adding a card to the Kanban board
@@ -10,90 +118,46 @@ export async function handleAddKanbanCard(
   formData: FormData,
   request: Request
 ): Promise<ActionResponse> {
-  const partNumber = formData.get("partNumber")?.toString();
-  if (!partNumber) {
-    return { success: false, error: "Part number is required" };
+  // Parse and validate form data
+  const rawData = formDataToObject(formData, [
+    "partNumber",
+    "documentId",
+    "instanceType",
+    "instanceId",
+    "elementId",
+    "partId",
+  ]);
+
+  const parseResult = addCardSchema.safeParse(rawData);
+  if (!parseResult.success) {
+    const errorMessage = parseResult.error.issues
+      .map((issue) => issue.message)
+      .join(", ");
+    return { success: false, error: errorMessage };
   }
 
-  try {
-    // Prepare card data
-    const documentId = formData.get("documentId")?.toString();
-    const instanceId = formData.get("instanceId")?.toString();
-    const elementId = formData.get("elementId")?.toString();
-    const partId = formData.get("partId")?.toString();
+  const data = parseResult.data;
 
+  try {
     // Build image URL from Onshape thumbnail API if part metadata is provided
     let imageUrl = "";
-    if (documentId && instanceId && elementId && partId) {
+    if (data.documentId && data.instanceId && data.elementId && data.partId) {
       const params = new URLSearchParams({
-        documentId,
-        instanceType: formData.get("instanceType")?.toString() || "w",
-        instanceId,
-        elementId,
-        partId,
+        documentId: data.documentId,
+        instanceType: data.instanceType,
+        instanceId: data.instanceId,
+        elementId: data.elementId,
+        partId: data.partId,
       });
       imageUrl = `/api/onshape/thumbnail?${params.toString()}`;
     }
 
-    // Get user information from Onshape using /users/current endpoint
-    let createdBy: string | undefined;
-    try {
-      const accessToken = await getValidOnshapeToken(request);
+    // Get user information from Onshape
+    const createdBy = await fetchOnshapeUserInfo(request);
 
-      if (!accessToken) {
-        console.log("[Kanban] No access token available");
-      } else {
-        const response = await onshapeApiRequest(accessToken, "/users/current");
-
-        if (!response.ok) {
-          const errorText = await response
-            .text()
-            .catch(() => "Unable to read error");
-          console.error(
-            "[Kanban] API response not OK. Status:",
-            response.status,
-            "Error:",
-            errorText
-          );
-        } else {
-          const user = await response.json();
-          console.log("[Kanban] User data:", JSON.stringify(user, null, 2));
-
-          if (user && typeof user === "object" && !Array.isArray(user)) {
-            const firstName = user.firstName;
-            const lastName = user.lastName;
-
-            console.log(
-              "[Kanban] First name:",
-              firstName,
-              "Last name:",
-              lastName
-            );
-
-            // Combine firstName and lastName, handling cases where one might be missing
-            const nameParts: string[] = [];
-            if (firstName) nameParts.push(firstName);
-            if (lastName) nameParts.push(lastName);
-            createdBy = nameParts.length > 0 ? nameParts.join(" ") : undefined;
-
-            console.log("[Kanban] Created by:", createdBy);
-          } else {
-            console.log("[Kanban] User data is not a valid object");
-          }
-        }
-      }
-    } catch (error) {
-      // Log error but don't fail card creation if user info fetch fails
-      console.error("[Kanban] Error fetching user info:", error);
-      if (error instanceof Error) {
-        console.error("[Kanban] Error message:", error.message);
-        console.error("[Kanban] Error stack:", error.stack);
-      }
-    }
-
-    // Create card directly
+    // Create card
     const card = await createCard({
-      title: partNumber,
+      title: data.partNumber,
       imageUrl,
       assignee: "Unassigned",
       material: "TBD",
@@ -103,7 +167,7 @@ export async function handleAddKanbanCard(
 
     return { success: true, data: card };
   } catch (error) {
-    console.error("[Kanban] Error adding card:", error);
+    logger.error("[Kanban] Error adding card:", error);
     return {
       success: false,
       error:
@@ -120,19 +184,24 @@ export async function handleAddKanbanCard(
 export async function handleMoveKanbanCard(
   formData: FormData
 ): Promise<ActionResponse> {
-  const cardId = formData.get("cardId")?.toString();
-  const columnId = formData.get("columnId")?.toString();
+  // Parse and validate form data
+  const rawData = formDataToObject(formData, ["cardId", "columnId"]);
 
-  if (!cardId || !columnId) {
-    return { success: false, error: "Card ID and column ID are required" };
+  const parseResult = moveCardSchema.safeParse(rawData);
+  if (!parseResult.success) {
+    const errorMessage = parseResult.error.issues
+      .map((issue) => issue.message)
+      .join(", ");
+    return { success: false, error: errorMessage };
   }
 
+  const { cardId, columnId } = parseResult.data;
+
   try {
-    // Update card directly
     const card = await updateCard(cardId, { columnId });
     return { success: true, data: card };
   } catch (error) {
-    console.error("[Kanban] Error moving card:", error);
+    logger.error("[Kanban] Error moving card:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to move card",
@@ -146,21 +215,26 @@ export async function handleMoveKanbanCard(
 export async function handleUpdateKanbanDueDate(
   formData: FormData
 ): Promise<ActionResponse> {
-  const cardId = formData.get("cardId")?.toString();
-  const dueDate = formData.get("dueDate")?.toString();
+  // Parse and validate form data
+  const rawData = formDataToObject(formData, ["cardId", "dueDate"]);
 
-  if (!cardId) {
-    return { success: false, error: "Card ID is required" };
+  const parseResult = updateDueDateSchema.safeParse(rawData);
+  if (!parseResult.success) {
+    const errorMessage = parseResult.error.issues
+      .map((issue) => issue.message)
+      .join(", ");
+    return { success: false, error: errorMessage };
   }
 
+  const { cardId, dueDate } = parseResult.data;
+
   try {
-    // Update card directly
     const card = await updateCard(cardId, {
       dueDate: dueDate || undefined,
     });
     return { success: true, data: card };
   } catch (error) {
-    console.error("[Kanban] Error updating due date:", error);
+    logger.error("[Kanban] Error updating due date:", error);
     return {
       success: false,
       error:
