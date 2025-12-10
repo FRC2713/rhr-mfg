@@ -3,6 +3,7 @@ import { createCard, updateCard } from "~/lib/kanbanApi/cards";
 import { logger } from "~/lib/logger";
 import { onshapeApiRequest } from "~/lib/onshapeApi/auth";
 import { getValidOnshapeToken } from "~/lib/tokenRefresh";
+import { uploadOnshapeThumbnailToSupabase } from "~/lib/kanbanApi/images";
 import type { ActionResponse } from "../utils/types";
 
 /**
@@ -142,14 +143,28 @@ export async function handleAddKanbanCard(
     // Build image URL from Onshape thumbnail API if part metadata is provided
     let imageUrl = "";
     if (data.documentId && data.instanceId && data.elementId && data.partId) {
-      const params = new URLSearchParams({
+      // Try to upload to Supabase first
+      const supabaseUrl = await uploadOnshapeThumbnailToSupabase(request, {
         documentId: data.documentId,
         instanceType: data.instanceType,
         instanceId: data.instanceId,
         elementId: data.elementId,
         partId: data.partId,
       });
-      imageUrl = `/api/onshape/thumbnail?${params.toString()}`;
+
+      if (supabaseUrl) {
+        imageUrl = supabaseUrl;
+      } else {
+        // Fallback to proxy URL if upload fails
+        const params = new URLSearchParams({
+          documentId: data.documentId,
+          instanceType: data.instanceType,
+          instanceId: data.instanceId,
+          elementId: data.elementId,
+          partId: data.partId,
+        });
+        imageUrl = `/api/onshape/thumbnail?${params.toString()}`;
+      }
     }
 
     // Get user information from Onshape

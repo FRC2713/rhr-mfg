@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -120,12 +120,24 @@ export function KanbanCard({ card }: KanbanCardProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  // Ensure imageUrl is properly formatted (should already be a proxy URL)
-  const imageUrl = card.imageUrl?.startsWith("/api/onshape/thumbnail")
-    ? card.imageUrl
-    : card.imageUrl?.startsWith("http")
-      ? `/api/onshape/thumbnail?url=${encodeURIComponent(card.imageUrl)}`
-      : card.imageUrl;
+  // Ensure imageUrl is properly formatted
+  const imageUrl = useMemo(() => {
+    if (!card.imageUrl) return undefined;
+
+    // If it's already our proxy endpoint, use as is
+    if (card.imageUrl.startsWith("/api/onshape/thumbnail")) {
+      return card.imageUrl;
+    }
+
+    // If it's a direct Onshape URL, wrap it in our proxy
+    // We check for onshape.com domain to identify direct Onshape URLs
+    if (card.imageUrl.includes("onshape.com")) {
+      return `/api/onshape/thumbnail?url=${encodeURIComponent(card.imageUrl)}`;
+    }
+
+    // Otherwise assume it's a public URL (Supabase, etc) and use as is
+    return card.imageUrl;
+  }, [card.imageUrl]);
 
   // Reset error state when imageUrl changes
   useEffect(() => {

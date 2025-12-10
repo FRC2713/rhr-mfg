@@ -5,6 +5,7 @@ import type {
   KanbanColumnConfig,
 } from "~/lib/supabase/database.types";
 import type { KanbanCard } from "~/routes/api.kanban.cards/types";
+import { deleteImageFromSupabase } from "./images";
 
 /**
  * Maps a database row (snake_case) to a KanbanCard (camelCase)
@@ -206,28 +207,43 @@ export async function updateCard(
 
 /**
  * Delete a Kanban card
- * Uses .delete().select() to atomically delete and return the card
+ * Also deletes the associated image from Supabase Storage if it exists
  */
 export async function deleteCard(cardId: string): Promise<KanbanCard> {
-  // Atomically delete and return the card in one operation
-  const { data, error } = await supabase
+  // First, fetch the card to get the imageUrl before deletion
+  const { data: cardData, error: fetchError } = await supabase
     .from("kanban_cards")
-    .delete()
+    .select("*")
     .eq("id", cardId)
-    .select()
     .single();
 
-  if (error) {
-    console.error("[KANBAN CARDS] Error deleting card:", error);
-    if (error.code === "PGRST116") {
+  if (fetchError) {
+    console.error("[KANBAN CARDS] Error fetching card for deletion:", fetchError);
+    if (fetchError.code === "PGRST116") {
       throw new Error("Card not found");
     }
-    throw new Error(`Failed to delete card: ${error.message}`);
+    throw new Error(`Failed to fetch card: ${fetchError.message}`);
   }
 
-  if (!data) {
+  if (!cardData) {
     throw new Error("Card not found");
   }
 
-  return mapRowToCard(data);
+  const card = mapRowToCard(cardData);
+
+  // Delete the associated image from Supabase Storage if it exists
+  await deleteImageFromSupabase(card.imageUrl);
+
+  // Now delete the card
+  const { error: deleteError } = await supabase
+    .from("kanban_cards")
+    .delete()
+    .eq("id", cardId);
+
+  if (deleteError) {
+    console.error("[KANBAN CARDS] Error deleting card:", deleteError);
+    throw new Error(`Failed to delete card: ${deleteError.message}`);
+  }
+
+  return card;
 }
