@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -120,6 +120,18 @@ export function KanbanCard({ card }: KanbanCardProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const queryClient = useQueryClient();
 
+  // Ensure imageUrl is properly formatted (should already be a proxy URL)
+  const imageUrl = card.imageUrl?.startsWith("/api/onshape/thumbnail")
+    ? card.imageUrl
+    : card.imageUrl?.startsWith("http")
+      ? `/api/onshape/thumbnail?url=${encodeURIComponent(card.imageUrl)}`
+      : card.imageUrl;
+
+  // Reset error state when imageUrl changes
+  useEffect(() => {
+    setImageError(false);
+  }, [imageUrl]);
+
   const {
     attributes,
     listeners,
@@ -219,10 +231,10 @@ export function KanbanCard({ card }: KanbanCardProps) {
 
                 <div className="mt-6 flex-1 space-y-6 overflow-y-auto">
                   {/* Image Section */}
-                  {card.imageUrl && !imageError && (
+                  {imageUrl && !imageError && (
                     <div className="bg-muted/50 overflow-hidden rounded-lg border">
                       <img
-                        src={card.imageUrl}
+                        src={imageUrl}
                         alt={card.title}
                         className="h-auto w-full object-contain"
                         onError={() => setImageError(true)}
@@ -394,11 +406,11 @@ export function KanbanCard({ card }: KanbanCardProps) {
           </div>
 
           {/* Card Image */}
-          {card.imageUrl && !imageError && (
+          {imageUrl && !imageError && (
             <div className="px-3 pb-2">
               <div className="bg-muted/50 overflow-hidden rounded-md border">
                 <img
-                  src={card.imageUrl}
+                  src={imageUrl}
                   alt={card.title}
                   className="h-auto w-full object-contain"
                   onError={() => setImageError(true)}
