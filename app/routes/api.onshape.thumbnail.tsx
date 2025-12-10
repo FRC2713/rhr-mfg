@@ -1,5 +1,6 @@
 import type { Route } from "./+types/api.onshape.thumbnail";
-import { getValidOnshapeToken } from "~/lib/tokenRefresh";
+import { refreshOnshapeTokenIfNeededWithSession } from "~/lib/tokenRefresh";
+import { getSession, commitSession } from "~/lib/session";
 
 /**
  * Build Onshape thumbnail URL from individual parameters
@@ -56,9 +57,17 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   try {
-    // Get valid Onshape token
-    const accessToken = await getValidOnshapeToken(request);
+    // Get session first so we can commit it if token is refreshed
+    const session = await getSession(request);
+    
+    // Get valid Onshape token (may refresh and update session)
+    const accessToken = await refreshOnshapeTokenIfNeededWithSession(session);
     if (!accessToken) {
+      console.error("[THUMBNAIL] No access token found. Request headers:", {
+        cookie: request.headers.get("Cookie") ? "present" : "missing",
+        userAgent: request.headers.get("User-Agent"),
+        referer: request.headers.get("Referer"),
+      });
       return new Response("Not authenticated", { status: 401 });
     }
 
@@ -70,18 +79,27 @@ export async function loader({ request }: Route.LoaderArgs) {
     });
 
     if (!response.ok) {
-      return new Response("Failed to fetch thumbnail", { status: response.status });
+      console.error("[THUMBNAIL] Onshape API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        url: thumbnailUrl,
+      });
+      return new Response(`Failed to fetch thumbnail: ${response.statusText}`, { status: response.status });
     }
 
     // Get the image data
     const imageData = await response.arrayBuffer();
     const contentType = response.headers.get("Content-Type") || "image/png";
 
+    // Commit session if it was updated (e.g., during token refresh)
+    const sessionCookie = await commitSession(session);
+
     // Return the image with appropriate headers
     return new Response(imageData, {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=3600", // Cache for 1 hour
+        "Set-Cookie": sessionCookie, // Update session cookie if token was refreshed
       },
     });
   } catch (error) {

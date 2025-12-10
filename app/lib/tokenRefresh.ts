@@ -58,7 +58,7 @@ export async function refreshOnshapeTokenIfNeededWithSession(session: any): Prom
     session.unset("onshapeAccessToken");
     session.unset("onshapeRefreshToken");
     session.unset("onshapeExpiresAt");
-    throw error;
+    return null; // Return null instead of throwing
   }
 }
 
@@ -66,8 +66,13 @@ export async function refreshOnshapeTokenIfNeededWithSession(session: any): Prom
  * Refresh Onshape token if needed (accepts request)
  */
 export async function refreshOnshapeTokenIfNeeded(request: Request): Promise<string | null> {
-  const session = await getSession(request);
-  return refreshOnshapeTokenIfNeededWithSession(session);
+  try {
+    const session = await getSession(request);
+    return await refreshOnshapeTokenIfNeededWithSession(session);
+  } catch (error) {
+    console.error("[TOKEN REFRESH] Error refreshing token:", error);
+    return null;
+  }
 }
 
 /**
