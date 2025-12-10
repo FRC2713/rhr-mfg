@@ -83,35 +83,15 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
         body: formData,
       });
 
-      // Check if response is JSON
-      const contentType = response.headers.get("content-type");
-      const isJson = contentType?.includes("application/json");
+      // Server always returns JSON, so parse it directly
+      const data = await response.json();
 
       if (!response.ok) {
-        let errorMessage = "Failed to move card";
-        if (isJson) {
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
-          } catch {
-            // If JSON parsing fails, use default message
-          }
-        } else {
-          // If it's HTML (error page), try to extract error from text
-          const text = await response.text();
-          console.error(
-            "[Kanban] Non-JSON error response:",
-            text.substring(0, 200)
-          );
-        }
+        const errorMessage = data.error || "Failed to move card";
         throw new Error(errorMessage);
       }
 
-      if (!isJson) {
-        throw new Error("Server returned non-JSON response");
-      }
-
-      return response.json();
+      return data;
     },
     onMutate: async ({ cardId, columnId }) => {
       // Cancel outgoing refetches
