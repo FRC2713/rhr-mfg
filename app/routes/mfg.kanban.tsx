@@ -1,14 +1,16 @@
 import type { Route } from "./+types/mfg.kanban";
 import { redirect } from "react-router";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { KanbanSquare, Settings2 } from "lucide-react";
+import { KanbanSquare, Settings2, Edit, Save, X } from "lucide-react";
 import {
   getSession,
   isOnshapeAuthenticated,
   commitSession,
 } from "~/lib/session";
 import { KanbanBoard, KanbanBoardSkeleton } from "~/components/mfg/KanbanBoard";
+import { Button } from "~/components/ui/button";
 import type { KanbanConfig } from "./api.kanban.config";
 
 export function meta({}: Route.MetaArgs) {
@@ -41,6 +43,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export default function MfgKanban() {
   const queryClient = useQueryClient();
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [originalConfig, setOriginalConfig] = useState<KanbanConfig | null>(
+    null
+  );
 
   // Fetch Kanban config
   const { data: config, isLoading } = useQuery<KanbanConfig>({
@@ -87,10 +93,40 @@ export default function MfgKanban() {
   });
 
   const handleConfigChange = (newConfig: KanbanConfig) => {
-    // Optimistically update the UI
-    queryClient.setQueryData(["kanban-config"], newConfig);
-    // Save to server
-    saveConfigMutation.mutate(newConfig);
+    // Only update local state when in edit mode
+    // Actual save happens when user clicks Save button
+    if (isEditMode) {
+      queryClient.setQueryData(["kanban-config"], newConfig);
+    }
+  };
+
+  const handleEnterEditMode = () => {
+    if (config) {
+      // Store original config for cancel functionality
+      setOriginalConfig(JSON.parse(JSON.stringify(config)));
+      setIsEditMode(true);
+    }
+  };
+
+  const handleSave = () => {
+    if (config) {
+      // Save to server
+      saveConfigMutation.mutate(config, {
+        onSuccess: () => {
+          setIsEditMode(false);
+          setOriginalConfig(null);
+        },
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    if (originalConfig) {
+      // Revert to original config
+      queryClient.setQueryData(["kanban-config"], originalConfig);
+      setIsEditMode(false);
+      setOriginalConfig(null);
+    }
   };
 
   return (
@@ -117,13 +153,47 @@ export default function MfgKanban() {
               </div>
             </div>
 
-            {/* Status indicator */}
-            {saveConfigMutation.isPending && (
-              <div className="bg-muted/80 text-muted-foreground flex items-center gap-2 rounded-full px-3 py-1.5 text-xs">
-                <Settings2 className="size-3 animate-spin" />
-                <span>Saving...</span>
-              </div>
-            )}
+            {/* Edit Mode Controls */}
+            <div className="flex items-center gap-2">
+              {!isEditMode ? (
+                <Button
+                  onClick={handleEnterEditMode}
+                  variant="outline"
+                  size="sm"
+                  disabled={!config}
+                >
+                  <Edit className="mr-2 size-4" />
+                  Edit Columns
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleCancel}
+                    variant="outline"
+                    size="sm"
+                    disabled={saveConfigMutation.isPending}
+                  >
+                    <X className="mr-2 size-4" />
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSave}
+                    size="sm"
+                    disabled={saveConfigMutation.isPending}
+                  >
+                    <Save className="mr-2 size-4" />
+                    Save
+                  </Button>
+                </>
+              )}
+              {/* Status indicator */}
+              {saveConfigMutation.isPending && (
+                <div className="bg-muted/80 text-muted-foreground flex items-center gap-2 rounded-full px-3 py-1.5 text-xs">
+                  <Settings2 className="size-3 animate-spin" />
+                  <span>Saving...</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -136,7 +206,12 @@ export default function MfgKanban() {
         {isLoading ? (
           <KanbanBoardSkeleton />
         ) : config ? (
-          <KanbanBoard config={config} onConfigChange={handleConfigChange} />
+          <KanbanBoard
+            config={config}
+            onConfigChange={handleConfigChange}
+            isEditMode={isEditMode}
+            originalConfig={originalConfig}
+          />
         ) : (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">

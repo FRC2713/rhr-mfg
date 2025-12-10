@@ -33,6 +33,7 @@ interface KanbanColumnProps {
   cards: KanbanCardType[];
   onRename: (id: string, newTitle: string) => void;
   onDelete: (id: string) => void;
+  isEditMode?: boolean;
 }
 
 export function KanbanColumn({
@@ -40,6 +41,7 @@ export function KanbanColumn({
   cards,
   onRename,
   onDelete,
+  isEditMode = false,
 }: KanbanColumnProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -93,15 +95,17 @@ export function KanbanColumn({
       >
         {/* Column Header */}
         <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-3">
-          {/* Drag Handle */}
-          <button
-            {...attributes}
-            {...listeners}
-            className="cursor-grab touch-none rounded p-1 opacity-0 transition-all hover:bg-muted group-hover/column:opacity-100 active:cursor-grabbing"
-            aria-label="Drag to reorder column"
-          >
-            <GripVertical className="size-4 text-muted-foreground" />
-          </button>
+          {/* Drag Handle - only visible in edit mode */}
+          {isEditMode && (
+            <button
+              {...attributes}
+              {...listeners}
+              className="cursor-grab touch-none rounded p-1 opacity-0 transition-all hover:bg-muted group-hover/column:opacity-100 active:cursor-grabbing"
+              aria-label="Drag to reorder column"
+            >
+              <GripVertical className="size-4 text-muted-foreground" />
+            </button>
+          )}
 
           {/* Column Title */}
           <div className="flex flex-1 items-center gap-2">
@@ -117,33 +121,35 @@ export function KanbanColumn({
             </span>
           </div>
 
-          {/* Column Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8 opacity-0 transition-opacity group-hover/column:opacity-100"
-              >
-                <MoreHorizontal className="size-4" />
-                <span className="sr-only">Column options</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                <Pencil className="mr-2 size-4" />
-                Rename column
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setIsDeleteDialogOpen(true)}
-                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-              >
-                <Trash2 className="mr-2 size-4" />
-                Delete column
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Column Menu - only visible in edit mode */}
+          {isEditMode && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 opacity-0 transition-opacity group-hover/column:opacity-100"
+                >
+                  <MoreHorizontal className="size-4" />
+                  <span className="sr-only">Column options</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                  <Pencil className="mr-2 size-4" />
+                  Rename column
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 size-4" />
+                  Delete column
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {/* Cards Container */}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
@@ -32,13 +32,21 @@ import type { KanbanCard } from "~/routes/api.kanban.cards/types";
 interface KanbanBoardProps {
   config: KanbanConfig;
   onConfigChange: (config: KanbanConfig) => void;
+  isEditMode?: boolean;
+  originalConfig?: KanbanConfig | null;
 }
 
-export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
+export function KanbanBoard({
+  config,
+  onConfigChange,
+  isEditMode = false,
+  originalConfig,
+}: KanbanBoardProps) {
   const [columns, setColumns] = useState<KanbanColumnType[]>(config.columns);
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
   const [activeCard, setActiveCard] = useState<KanbanCard | null>(null);
   const queryClient = useQueryClient();
+  const lastSyncedConfigRef = useRef<string>(JSON.stringify(config.columns));
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -67,6 +75,16 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
   });
 
   const cards = cardsData?.cards || [];
+
+  // Sync columns with config when config changes (e.g., on cancel)
+  // Only sync if the config actually changed from an external source
+  useEffect(() => {
+    const configString = JSON.stringify(config.columns);
+    if (configString !== lastSyncedConfigRef.current) {
+      setColumns(config.columns);
+      lastSyncedConfigRef.current = configString;
+    }
+  }, [config.columns]);
 
   // Mutation to update card column
   const moveCardMutation = useMutation({
@@ -147,14 +165,23 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
     return grouped;
   }, [cards]);
 
-  // Debounced save effect
+  // Debounced save effect - only active in edit mode
   useEffect(() => {
+    if (!isEditMode) {
+      // Clear any pending timeout when exiting edit mode
+      if (saveTimeout) {
+        clearTimeout(saveTimeout);
+        setSaveTimeout(null);
+      }
+      return;
+    }
+
     // Clear existing timeout
     if (saveTimeout) {
       clearTimeout(saveTimeout);
     }
 
-    // Set new timeout for auto-save
+    // Set new timeout for auto-save (only updates local state in edit mode)
     const timeout = setTimeout(() => {
       const updatedConfig: KanbanConfig = {
         ...config,
@@ -163,6 +190,8 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
           position: index,
         })),
       };
+      // Update ref to prevent unnecessary sync when config prop updates
+      lastSyncedConfigRef.current = JSON.stringify(updatedConfig.columns);
       onConfigChange(updatedConfig);
     }, 300);
 
@@ -174,7 +203,7 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
         clearTimeout(timeout);
       }
     };
-  }, [columns]);
+  }, [columns, isEditMode, config, onConfigChange]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -209,8 +238,8 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
         moveCardMutation.mutate({ cardId, columnId: targetColumnId });
       }
     } else if (isColumn) {
-      // Handle column drag (reordering columns)
-      if (active.id !== over.id) {
+      // Handle column drag (reordering columns) - only in edit mode
+      if (isEditMode && active.id !== over.id) {
         setColumns((items) => {
           const oldIndex = items.findIndex((item) => item.id === active.id);
           const newIndex = items.findIndex((item) => item.id === over.id);
@@ -265,13 +294,16 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
             </div>
             <h3 className="mb-2 text-lg font-semibold">No columns yet</h3>
             <p className="text-muted-foreground mb-6 text-sm">
-              Create your first column to start organizing your workflow. You
-              can add, rename, and reorder columns as needed.
+              {isEditMode
+                ? "Create your first column to start organizing your workflow. You can add, rename, and reorder columns as needed."
+                : "Enter edit mode to create your first column and start organizing your workflow."}
             </p>
-            <Button onClick={handleAddColumn} size="lg">
-              <Plus className="mr-2 size-5" />
-              Create First Column
-            </Button>
+            {isEditMode && (
+              <Button onClick={handleAddColumn} size="lg">
+                <Plus className="mr-2 size-5" />
+                Create First Column
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -296,10 +328,12 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
             <Loader2 className="text-muted-foreground size-4 animate-spin" />
           )}
         </div>
-        <Button onClick={handleAddColumn} size="sm" variant="outline">
-          <Plus className="mr-2 size-4" />
-          Add Column
-        </Button>
+        {isEditMode && (
+          <Button onClick={handleAddColumn} size="sm" variant="outline">
+            <Plus className="mr-2 size-4" />
+            Add Column
+          </Button>
+        )}
       </div>
 
       {/* Board Content */}
@@ -331,17 +365,20 @@ export function KanbanBoard({ config, onConfigChange }: KanbanBoardProps) {
                   cards={cardsByColumn[column.id] || []}
                   onRename={handleRenameColumn}
                   onDelete={handleDeleteColumn}
+                  isEditMode={isEditMode}
                 />
               ))}
 
-              {/* Quick add column button at the end */}
-              <button
-                onClick={handleAddColumn}
-                className="border-muted-foreground/20 bg-muted/20 text-muted-foreground hover:border-muted-foreground/40 hover:bg-muted/40 hover:text-foreground flex h-full w-[320px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-all"
-              >
-                <Plus className="size-6" />
-                <span className="text-sm font-medium">Add Column</span>
-              </button>
+              {/* Quick add column button at the end - only in edit mode */}
+              {isEditMode && (
+                <button
+                  onClick={handleAddColumn}
+                  className="border-muted-foreground/20 bg-muted/20 text-muted-foreground hover:border-muted-foreground/40 hover:bg-muted/40 hover:text-foreground flex h-full w-[320px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-all"
+                >
+                  <Plus className="size-6" />
+                  <span className="text-sm font-medium">Add Column</span>
+                </button>
+              )}
             </div>
           </SortableContext>
 
