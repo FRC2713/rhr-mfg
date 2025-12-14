@@ -23,8 +23,6 @@ import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import type { KanbanCard } from "~/api/kanban/cards/types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import { PartsPageSearchParams } from "./page";
-import { getPartsWmveOptions } from "~/lib/onshapeApi/generated/@tanstack/react-query.gen";
-import { useOnshapeClient } from "~/lib/onshapeApi/useOnshapeClient";
 
 interface MfgPartsClientProps {
   queryParams: PartsPageSearchParams;
@@ -42,7 +40,6 @@ export function MfgPartsClient({
     "none" | "name" | "partNumber" | "mfgState" | "createdAt" | "updatedAt"
   >("none");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const client = useOnshapeClient();
 
   // Fetch Kanban data client-side
   const { data: kanbanCardsData } = useQuery<{ cards: KanbanCard[] }>({
@@ -70,20 +67,29 @@ export function MfgPartsClient({
     data: parts = [],
     isLoading: isLoadingParts,
     error: partsError,
-  } = useQuery({
-    ...getPartsWmveOptions({
-      client,
-      path: {
-        did: queryParams.documentId,
-        wvm: queryParams.instanceType,
-        wvmid: queryParams.instanceId,
-        eid: queryParams.elementId,
-      },
-      query: {
-        withThumbnails: true,
-      },
-    }),
-    enabled: !!queryParams?.documentId && !!client,
+  } = useQuery<BtPartMetadataInfo[]>({
+    queryKey: [
+      "onshape-parts",
+      queryParams.documentId,
+      queryParams.instanceType,
+      queryParams.instanceId,
+      queryParams.elementId,
+    ],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        documentId: queryParams.documentId!,
+        instanceType: queryParams.instanceType,
+        instanceId: queryParams.instanceId,
+        elementId: queryParams.elementId,
+        withThumbnails: "true",
+      });
+      const response = await fetch(`/api/onshape/parts?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch parts");
+      }
+      return response.json();
+    },
+    enabled: !!queryParams?.documentId,
     staleTime: 30 * 1000, // Cache for 30 seconds
   });
 
