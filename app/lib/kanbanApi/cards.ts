@@ -1,37 +1,14 @@
-import type { KanbanCard } from "~/api/kanban/cards/types";
 import { supabase } from "~/lib/supabase/client";
 import type {
   KanbanCardRow,
-  KanbanCardUpdate,
   KanbanColumnConfig,
 } from "~/lib/supabase/database.types";
-import { deleteImageFromSupabase } from "./images";
-
-/**
- * Maps a database row (snake_case) to a KanbanCard (camelCase)
- */
-function mapRowToCard(row: KanbanCardRow): KanbanCard {
-  return {
-    id: row.id,
-    columnId: row.column_id,
-    title: row.title,
-    imageUrl: row.image_url ?? undefined,
-    assignee: row.assignee ?? undefined,
-    dateCreated: row.date_created,
-    dateUpdated: row.date_updated,
-    material: row.material ?? undefined,
-    machine: row.machine ?? undefined,
-    dueDate: row.due_date ?? undefined,
-    content: row.content ?? undefined,
-    createdBy: row.created_by ?? undefined,
-  };
-}
 
 /**
  * Result type for getCards to distinguish errors from empty results
  */
 export interface GetCardsResult {
-  cards: KanbanCard[];
+  cards: KanbanCardRow[];
   error?: string;
 }
 
@@ -51,7 +28,7 @@ export async function getCards(): Promise<GetCardsResult> {
       return { cards: [], error: error.message };
     }
 
-    return { cards: (data || []).map(mapRowToCard) };
+    return { cards: data || [] };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown error fetching cards";
@@ -107,7 +84,7 @@ export interface CreateCardInput {
  */
 export async function createCard(
   cardData: CreateCardInput
-): Promise<KanbanCard> {
+): Promise<KanbanCardRow> {
   // Get column ID for position 0
   const columnId = await getColumnIdByPosition(0);
 
@@ -143,35 +120,7 @@ export async function createCard(
     throw new Error(`Failed to create card: ${error.message}`);
   }
 
-  return mapRowToCard(data);
-}
-
-/**
- * Build database update object from camelCase updates
- */
-function buildDbUpdates(
-  updates: Partial<Omit<KanbanCard, "id" | "dateCreated">>
-): KanbanCardUpdate {
-  const dbUpdates: KanbanCardUpdate = {
-    date_updated: new Date().toISOString(),
-  };
-
-  if (updates.columnId !== undefined) dbUpdates.column_id = updates.columnId;
-  if (updates.title !== undefined) dbUpdates.title = updates.title;
-  if (updates.imageUrl !== undefined)
-    dbUpdates.image_url = updates.imageUrl ?? null;
-  if (updates.assignee !== undefined)
-    dbUpdates.assignee = updates.assignee ?? null;
-  if (updates.material !== undefined)
-    dbUpdates.material = updates.material ?? null;
-  if (updates.machine !== undefined)
-    dbUpdates.machine = updates.machine ?? null;
-  if (updates.dueDate !== undefined)
-    dbUpdates.due_date = updates.dueDate ?? null;
-  if (updates.content !== undefined)
-    dbUpdates.content = updates.content ?? null;
-
-  return dbUpdates;
+  return data;
 }
 
 /**
@@ -179,13 +128,11 @@ function buildDbUpdates(
  */
 export async function updateCard(
   cardId: string,
-  updates: Partial<Omit<KanbanCard, "id" | "dateCreated">>
-): Promise<KanbanCard> {
-  const dbUpdates = buildDbUpdates(updates);
-
+  updates: Partial<Omit<KanbanCardRow, "id" | "date_created">>
+): Promise<KanbanCardRow> {
   const { data, error } = await supabase
     .from("kanban_cards")
-    .update(dbUpdates)
+    .update(updates)
     .eq("id", cardId)
     .select()
     .single();
@@ -202,14 +149,14 @@ export async function updateCard(
     throw new Error("Card not found");
   }
 
-  return mapRowToCard(data);
+  return data;
 }
 
 /**
  * Delete a Kanban card
  * Also deletes the associated image from Supabase Storage if it exists
  */
-export async function deleteCard(cardId: string): Promise<KanbanCard> {
+export async function deleteCard(cardId: string): Promise<KanbanCardRow> {
   // First, fetch the card to get the imageUrl before deletion
   const { data: cardData, error: fetchError } = await supabase
     .from("kanban_cards")
@@ -232,11 +179,6 @@ export async function deleteCard(cardId: string): Promise<KanbanCard> {
     throw new Error("Card not found");
   }
 
-  const card = mapRowToCard(cardData);
-
-  // Delete the associated image from Supabase Storage if it exists
-  await deleteImageFromSupabase(card.imageUrl);
-
   // Now delete the card
   const { error: deleteError } = await supabase
     .from("kanban_cards")
@@ -248,5 +190,5 @@ export async function deleteCard(cardId: string): Promise<KanbanCard> {
     throw new Error(`Failed to delete card: ${deleteError.message}`);
   }
 
-  return card;
+  return cardData;
 }

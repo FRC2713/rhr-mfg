@@ -21,28 +21,30 @@ import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Skeleton } from "~/components/ui/skeleton";
-import { KanbanColumn } from "./KanbanColumn";
-import { KanbanCard as KanbanCardComponent } from "./KanbanCard";
+import { KanbanColumn } from "../columns/KanbanColumn";
+import { KanbanCard as KanbanCardComponent } from "../cards/KanbanCard";
 import type {
   KanbanConfig,
   KanbanColumn as KanbanColumnType,
 } from "~/api/kanban/config/route";
-import type { KanbanCard } from "~/api/kanban/cards/types";
+import type { KanbanCardRow } from "~/lib/supabase/database.types";
 
 interface KanbanBoardProps {
   config: KanbanConfig;
   onConfigChange: (config: KanbanConfig) => void;
   isEditMode?: boolean;
+  hideImages?: boolean;
 }
 
 export function KanbanBoard({
   config,
   onConfigChange,
   isEditMode = false,
+  hideImages = false,
 }: KanbanBoardProps) {
   const [columns, setColumns] = useState<KanbanColumnType[]>(config.columns);
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [activeCard, setActiveCard] = useState<KanbanCard | null>(null);
+  const [activeCard, setActiveCard] = useState<KanbanCardRow | null>(null);
   const queryClient = useQueryClient();
   const lastSyncedConfigRef = useRef<string>(JSON.stringify(config.columns));
 
@@ -59,7 +61,7 @@ export function KanbanBoard({
 
   // Fetch cards
   const { data: cardsData, isLoading: isLoadingCards } = useQuery<{
-    cards: KanbanCard[];
+    cards: KanbanCardRow[];
   }>({
     queryKey: ["kanban-cards"],
     queryFn: async () => {
@@ -126,13 +128,13 @@ export function KanbanBoard({
       await queryClient.cancelQueries({ queryKey: ["kanban-cards"] });
 
       // Snapshot previous value
-      const previousCards = queryClient.getQueryData<{ cards: KanbanCard[] }>([
-        "kanban-cards",
-      ]);
+      const previousCards = queryClient.getQueryData<{
+        cards: KanbanCardRow[];
+      }>(["kanban-cards"]);
 
       // Optimistically update
       if (previousCards) {
-        queryClient.setQueryData<{ cards: KanbanCard[] }>(["kanban-cards"], {
+        queryClient.setQueryData<{ cards: KanbanCardRow[] }>(["kanban-cards"], {
           cards: previousCards.cards.map((card) =>
             card.id === cardId ? { ...card, columnId } : card
           ),
@@ -150,9 +152,6 @@ export function KanbanBoard({
         description: error instanceof Error ? error.message : "Unknown error",
       });
     },
-    onSuccess: () => {
-      toast.success("Card moved");
-    },
     onSettled: () => {
       // Refetch to ensure consistency
       queryClient.invalidateQueries({ queryKey: ["kanban-cards"] });
@@ -161,12 +160,12 @@ export function KanbanBoard({
 
   // Group cards by columnId
   const cardsByColumn = useMemo(() => {
-    const grouped: Record<string, KanbanCard[]> = {};
+    const grouped: Record<string, KanbanCardRow[]> = {};
     cards.forEach((card) => {
-      if (!grouped[card.columnId]) {
-        grouped[card.columnId] = [];
+      if (!grouped[card.column_id]) {
+        grouped[card.column_id] = [];
       }
-      grouped[card.columnId].push(card);
+      grouped[card.column_id].push(card);
     });
     return grouped;
   }, [cards]);
@@ -224,7 +223,7 @@ export function KanbanBoard({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    // Clear the active card
+    // Clear the active card immediately - dropAnimation={null} prevents animation
     setActiveCard(null);
 
     if (!over) return;
@@ -238,24 +237,9 @@ export function KanbanBoard({
       const cardId = active.id as string;
       let targetColumnId = over.id as string;
 
-      // Check if over.id is a card id (card dragged over another card)
-      // If so, find the column that contains that card
-      const overCard = cards.find((c) => c.id === over.id);
-      if (overCard) {
-        targetColumnId = overCard.columnId;
-      } else {
-        // Check if over.id is a column id
-        const overColumn = columns.find((col) => col.id === over.id);
-        if (!overColumn) {
-          // If it's neither a card nor a column, we can't determine the target
-          return;
-        }
-        // targetColumnId is already set to the column id
-      }
-
       // Check if the card is being moved to a different column
       const card = cards.find((c) => c.id === cardId);
-      if (card && card.columnId !== targetColumnId) {
+      if (card && card.column_id !== targetColumnId) {
         moveCardMutation.mutate({ cardId, columnId: targetColumnId });
       }
     } else if (isColumn) {
@@ -338,85 +322,51 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Board Header */}
-      <div className="bg-muted/30 flex flex-col gap-2 border-b px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <div className="text-muted-foreground flex items-center gap-2 text-xs sm:text-sm">
-            <Columns3 className="size-3 sm:size-4" />
-            <span>
-              {columns.length} {columns.length === 1 ? "column" : "columns"}
-            </span>
-          </div>
-          <Badge variant="secondary" className="text-xs tabular-nums">
-            {cards.length} {cards.length === 1 ? "card" : "cards"}
-          </Badge>
-          {isLoadingCards && (
-            <Loader2 className="text-muted-foreground size-3 animate-spin sm:size-4" />
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext
+        items={columns.map((col) => col.id)}
+        strategy={horizontalListSortingStrategy}
+      >
+        <div className="flex h-full gap-3 overflow-x-auto p-3 sm:gap-4 sm:p-6">
+          {columns.map((column) => (
+            <KanbanColumn
+              key={column.id}
+              column={column}
+              cards={cardsByColumn[column.id] || []}
+              onRename={handleRenameColumn}
+              onDelete={handleDeleteColumn}
+              isEditMode={isEditMode}
+              isDraggingCard={activeCard !== null}
+              hideImages={hideImages}
+            />
+          ))}
+
+          {/* Quick add column button at the end - only in edit mode */}
+          {isEditMode && (
+            <button
+              onClick={handleAddColumn}
+              className="border-muted-foreground/20 bg-muted/20 text-muted-foreground active:border-muted-foreground/40 active:bg-muted/40 active:text-foreground hover:border-muted-foreground/40 hover:bg-muted/40 hover:text-foreground flex h-full w-[280px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-all sm:w-[320px]"
+            >
+              <Plus className="size-5 sm:size-6" />
+              <span className="text-xs font-medium sm:text-sm">Add Column</span>
+            </button>
           )}
         </div>
-        {isEditMode && (
-          <Button
-            onClick={handleAddColumn}
-            size="sm"
-            variant="outline"
-            className="w-full sm:w-auto"
-          >
-            <Plus className="mr-2 size-4" />
-            Add Column
-          </Button>
-        )}
-      </div>
+      </SortableContext>
 
-      {/* Board Content */}
-      <div className="flex-1">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={columns.map((col) => col.id)}
-            strategy={horizontalListSortingStrategy}
-          >
-            <div className="flex h-full gap-3 overflow-x-auto p-3 sm:gap-4 sm:p-6">
-              {columns.map((column) => (
-                <KanbanColumn
-                  key={column.id}
-                  column={column}
-                  cards={cardsByColumn[column.id] || []}
-                  onRename={handleRenameColumn}
-                  onDelete={handleDeleteColumn}
-                  isEditMode={isEditMode}
-                />
-              ))}
-
-              {/* Quick add column button at the end - only in edit mode */}
-              {isEditMode && (
-                <button
-                  onClick={handleAddColumn}
-                  className="border-muted-foreground/20 bg-muted/20 text-muted-foreground active:border-muted-foreground/40 active:bg-muted/40 active:text-foreground hover:border-muted-foreground/40 hover:bg-muted/40 hover:text-foreground flex h-full w-[280px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-all sm:w-[320px]"
-                >
-                  <Plus className="size-5 sm:size-6" />
-                  <span className="text-xs font-medium sm:text-sm">
-                    Add Column
-                  </span>
-                </button>
-              )}
-            </div>
-          </SortableContext>
-
-          <DragOverlay>
-            {activeCard ? (
-              <div className="rotate-3 opacity-95" style={{ width: "300px" }}>
-                <KanbanCardComponent card={activeCard} />
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      </div>
-    </div>
+      <DragOverlay dropAnimation={null}>
+        {activeCard ? (
+          <div className="rotate-3 opacity-95" style={{ width: "300px" }}>
+            <KanbanCardComponent card={activeCard} />
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 

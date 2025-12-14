@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -19,16 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import {
-  Home,
-  RefreshCw,
-  User,
-  LogIn,
-  LogOut,
-  Moon,
-  Sun,
-  Monitor,
-} from "lucide-react";
+import { Home, User, LogIn, LogOut, Moon, Sun, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
@@ -80,7 +71,6 @@ export function MainLayoutClient({
   onshapeAuth: boolean;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const breadcrumbs = getBreadcrumbs(pathname);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -89,10 +79,6 @@ export function MainLayoutClient({
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  const handleRefresh = () => {
-    router.refresh();
-  };
 
   return (
     <div className="flex h-full flex-col">
@@ -140,16 +126,6 @@ export function MainLayoutClient({
             </BreadcrumbList>
           </Breadcrumb>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRefresh}
-              className="h-8"
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-
             {/* User Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -13,13 +13,13 @@ import {
   PopoverTrigger,
 } from "~/components/ui/popover";
 import { cn } from "~/lib/utils";
-import type { KanbanCard } from "~/api/kanban/cards/types";
+import type { KanbanCardRow } from "~/lib/supabase/database.types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import type { PartsPageSearchParams } from "~/onshape_connector/page";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 
 interface PartDueDateProps {
-  card: KanbanCard;
+  card: KanbanCardRow;
   part: BtPartMetadataInfo;
   queryParams: PartsPageSearchParams;
   columns: KanbanColumn[];
@@ -53,14 +53,14 @@ export function PartDueDate({ card }: PartDueDateProps) {
 
   // Parse the card's dueDate only when it actually changes
   const cardDueDate = useMemo(() => {
-    if (!card.dueDate) return undefined;
+    if (!card.due_date) return undefined;
     try {
-      return parseLocalDate(card.dueDate);
+      return parseLocalDate(card.due_date);
     } catch (e) {
-      console.error("Error parsing due date:", card.dueDate, e);
+      console.error("Error parsing due date:", card.due_date, e);
       return undefined;
     }
-  }, [card.dueDate]);
+  }, [card.due_date]);
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     cardDueDate

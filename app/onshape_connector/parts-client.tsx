@@ -20,7 +20,7 @@ import { PartCardSkeleton } from "~/components/mfg/PartCardSkeleton";
 import { PartCard } from "~/components/mfg/PartCard";
 import { ErrorDisplay } from "~/components/mfg/ErrorDisplay";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { KanbanCard } from "~/api/kanban/cards/types";
+import type { KanbanCardRow } from "~/lib/supabase/database.types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import { PartsPageSearchParams } from "./page";
 import { getPartsQueryOptions } from "./utils/partsQuery";
@@ -43,7 +43,7 @@ export function MfgPartsClient({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Fetch Kanban data client-side
-  const { data: kanbanCardsData } = useQuery<{ cards: KanbanCard[] }>({
+  const { data: kanbanCardsData } = useQuery<{ cards: KanbanCardRow[] }>({
     queryKey: ["kanban-cards"],
     queryFn: async () => {
       const response = await fetch("/api/kanban/cards");
@@ -123,10 +123,10 @@ export function MfgPartsClient({
           if (!cardB) return -1;
 
           const columnA = kanbanColumns.find(
-            (col) => col.id === cardA.columnId
+            (col) => col.id === cardA.column_id
           );
           const columnB = kanbanColumns.find(
-            (col) => col.id === cardB.columnId
+            (col) => col.id === cardB.column_id
           );
 
           const positionA = columnA?.position ?? Number.MAX_SAFE_INTEGER;
@@ -146,8 +146,8 @@ export function MfgPartsClient({
           if (!cardA) return 1; // Parts without cards go to the end
           if (!cardB) return -1;
 
-          const dateA = new Date(cardA.dateCreated).getTime();
-          const dateB = new Date(cardB.dateCreated).getTime();
+          const dateA = new Date(cardA.date_created).getTime();
+          const dateB = new Date(cardB.date_created).getTime();
 
           // Base sort: newest first (dateB - dateA), then apply direction
           return (dateB - dateA) * directionMultiplier;
@@ -164,8 +164,8 @@ export function MfgPartsClient({
           if (!cardA) return 1; // Parts without cards go to the end
           if (!cardB) return -1;
 
-          const dateA = new Date(cardA.dateUpdated).getTime();
-          const dateB = new Date(cardB.dateUpdated).getTime();
+          const dateA = new Date(cardA.date_updated).getTime();
+          const dateB = new Date(cardB.date_updated).getTime();
 
           // Base sort: most recently updated first (dateB - dateA), then apply direction
           return (dateB - dateA) * directionMultiplier;

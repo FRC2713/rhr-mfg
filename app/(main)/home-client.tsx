@@ -4,7 +4,10 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { KanbanSquare, Settings2, Edit, Save, X } from "lucide-react";
-import { KanbanBoard, KanbanBoardSkeleton } from "~/components/mfg/KanbanBoard";
+import {
+  KanbanBoard,
+  KanbanBoardSkeleton,
+} from "~/components/mfg/kanban/board/KanbanBoard";
 import { Button } from "~/components/ui/button";
 import type { KanbanConfig } from "~/api/kanban/config/route";
 

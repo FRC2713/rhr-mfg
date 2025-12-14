@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { KanbanCard } from "~/api/kanban/cards/types";
+import type { KanbanCardRow } from "~/lib/supabase/database.types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import { PartDueDate } from "./PartDueDate";
 
@@ -21,7 +21,7 @@ import type { PartsPageSearchParams } from "~/onshape_connector/page";
 interface PartMfgStateProps {
   part: BtPartMetadataInfo;
   queryParams: PartsPageSearchParams;
-  cards: KanbanCard[];
+  cards: KanbanCardRow[];
   columns: KanbanColumn[];
 }
 
@@ -70,7 +70,7 @@ export function PartMfgState({
 
   // Find current column if card exists
   const currentColumn = matchingCard
-    ? columns.find((col) => col.id === matchingCard.columnId)
+    ? columns.find((col) => col.id === matchingCard.column_id)
     : null;
 
   const handleAddCard = async (e: React.FormEvent<HTMLFormElement>) => {

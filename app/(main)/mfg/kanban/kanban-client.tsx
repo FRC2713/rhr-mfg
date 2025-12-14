@@ -4,13 +4,18 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { KanbanSquare, Settings2, Edit, Save, X } from "lucide-react";
-import { KanbanBoard, KanbanBoardSkeleton } from "~/components/mfg/KanbanBoard";
+import {
+  KanbanBoard,
+  KanbanBoardSkeleton,
+} from "~/components/mfg/kanban/board/KanbanBoard";
 import { Button } from "~/components/ui/button";
 import type { KanbanConfig } from "~/api/kanban/config/route";
+import { KanbanBoardControls } from "~/components/mfg/kanban/board/KanbanBoardControls";
 
 export function MfgKanbanClient() {
   const queryClient = useQueryClient();
   const [isEditMode, setIsEditMode] = useState(false);
+  const [hideImages, setHideImages] = useState(false);
   const [originalConfig, setOriginalConfig] = useState<KanbanConfig | null>(
     null
   );
@@ -96,75 +101,38 @@ export function MfgKanbanClient() {
     }
   };
 
+  const handleHideImages = () => {
+    setHideImages(!hideImages);
+  };
+
   return (
     <main className="bg-background flex h-full flex-1 flex-col overflow-hidden">
       {/* Page Header */}
-      <header className="from-card via-card to-muted/50 relative border-b bg-linear-to-r">
-        <div className="relative px-4 py-4 sm:px-6 sm:py-6">
+      <header className="bg-muted/30 relative border-b bg-linear-to-r">
+        <div className="relative px-4 py-2">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-3 sm:gap-4">
-              {/* Icon */}
-              <div className="bg-primary/10 ring-primary/20 flex size-10 shrink-0 items-center justify-center rounded-xl ring-1 sm:size-12">
+              <div className="bg-primary/10 ring-primary/20 flex size-6 shrink-0 items-center justify-center rounded-xl ring-1 sm:size-8">
                 <KanbanSquare className="text-primary size-5 sm:size-6" />
               </div>
-
-              {/* Title & Description */}
               <div className="min-w-0 flex-1">
                 <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
                   Kanban Board
                 </h1>
               </div>
             </div>
-
-            {/* Edit Mode Controls */}
-            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-              {!isEditMode ? (
-                <Button
-                  onClick={handleEnterEditMode}
-                  variant="outline"
-                  size="sm"
-                  disabled={!config}
-                  className="w-full sm:w-auto"
-                >
-                  <Edit className="mr-2 size-4" />
-                  <span className="sm:inline">Edit Columns</span>
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    onClick={handleCancel}
-                    variant="outline"
-                    size="sm"
-                    disabled={saveConfigMutation.isPending}
-                    className="flex-1 sm:flex-initial"
-                  >
-                    <X className="mr-2 size-4" />
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSave}
-                    size="sm"
-                    disabled={saveConfigMutation.isPending}
-                    className="flex-1 sm:flex-initial"
-                  >
-                    <Save className="mr-2 size-4" />
-                    Save
-                  </Button>
-                </>
-              )}
-              {/* Status indicator */}
-              {saveConfigMutation.isPending && (
-                <div className="bg-muted/80 text-muted-foreground flex items-center gap-2 rounded-full px-3 py-1.5 text-xs">
-                  <Settings2 className="size-3 animate-spin" />
-                  <span className="hidden sm:inline">Saving...</span>
-                </div>
-              )}
-            </div>
+            <KanbanBoardControls
+              isEditMode={isEditMode}
+              handleEnterEditMode={handleEnterEditMode}
+              config={config}
+              onEditCancel={handleCancel}
+              onEditSave={handleSave}
+              isSaving={saveConfigMutation.isPending}
+              onHideImages={handleHideImages}
+              hideImages={hideImages}
+            />
           </div>
         </div>
-
-        {/* Decorative gradient line */}
-        <div className="via-primary/20 absolute right-0 bottom-0 left-0 h-px bg-linear-to-r from-transparent to-transparent" />
       </header>
 
       {/* Board Content */}
@@ -176,6 +144,7 @@ export function MfgKanbanClient() {
             config={config}
             onConfigChange={handleConfigChange}
             isEditMode={isEditMode}
+            hideImages={hideImages}
           />
         ) : (
           <div className="flex h-full items-center justify-center">

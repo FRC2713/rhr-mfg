@@ -7,7 +7,7 @@ import {
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { KanbanCard } from "~/api/kanban/cards/types";
+import type { KanbanCardRow } from "~/lib/supabase/database.types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import type { PartsPageSearchParams } from "~/onshape_connector/page";
 import { PartCardThumbnail } from "./PartCardThumbnail";
@@ -18,7 +18,7 @@ import { ManufacturingStateBadge } from "./ManufacturingStateBadge";
 interface PartCardProps {
   part: BtPartMetadataInfo;
   queryParams: PartsPageSearchParams;
-  cards: KanbanCard[];
+  cards: KanbanCardRow[];
   columns: KanbanColumn[];
 }
 
@@ -33,7 +33,7 @@ export function PartCard({ part, queryParams, cards, columns }: PartCardProps) {
 
   // Find current column if card exists
   const currentColumn = matchingCard
-    ? columns.find((col) => col.id === matchingCard.columnId)
+    ? columns.find((col) => col.id === matchingCard.column_id)
     : null;
 
   return (

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     // Filter by columnId if provided
     if (columnId) {
-      cards = cards.filter((card) => card.columnId === columnId);
+      cards = cards.filter((card) => card.column_id === columnId);
     }
 
     return NextResponse.json({ cards });

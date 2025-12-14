@@ -73,9 +73,10 @@ function formDataToObject(
 }
 
 /**
- * Fetch current user info from Onshape API
+ * Fetch current user ID from Onshape API
+ * Returns the Onshape user ID to be stored in created_by field
  */
-async function fetchOnshapeUserInfo(
+async function fetchOnshapeUserId(
   request: NextRequest
 ): Promise<string | undefined> {
   try {
@@ -103,12 +104,8 @@ async function fetchOnshapeUserInfo(
     const user = (await response.json()) as OnshapeUser;
     logger.debug("[Kanban] User data received");
 
-    // Combine firstName and lastName
-    const nameParts: string[] = [];
-    if (user.firstName) nameParts.push(user.firstName);
-    if (user.lastName) nameParts.push(user.lastName);
-
-    return nameParts.length > 0 ? nameParts.join(" ") : undefined;
+    // Return the Onshape user ID
+    return user.id;
   } catch (error) {
     logger.error("[Kanban] Error fetching user info:", error);
     return undefined;
@@ -151,8 +148,8 @@ export async function handleAddKanbanCard(
       imageUrl = `/api/onshape/thumbnail?url=${encodeURIComponent(data.rawThumbnailUrl)}`;
     }
 
-    // Get user information from Onshape
-    const createdBy = await fetchOnshapeUserInfo(request);
+    // Get Onshape user ID to store in created_by field
+    const createdBy = await fetchOnshapeUserId(request);
 
     // Create card
     const card = await createCard({
@@ -197,7 +194,7 @@ export async function handleMoveKanbanCard(
   const { cardId, columnId } = parseResult.data;
 
   try {
-    const card = await updateCard(cardId, { columnId });
+    const card = await updateCard(cardId, { column_id: columnId });
     return { success: true, data: card };
   } catch (error) {
     logger.error("[Kanban] Error moving card:", error);
@@ -229,7 +226,7 @@ export async function handleUpdateKanbanDueDate(
 
   try {
     const card = await updateCard(cardId, {
-      dueDate: dueDate || undefined,
+      due_date: dueDate || undefined,
     });
     return { success: true, data: card };
   } catch (error) {

@@ -2,10 +2,6 @@ import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
 import { GripVertical, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import {
@@ -24,16 +20,18 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { KanbanColumnHeader } from "./KanbanColumnHeader";
-import { KanbanCard } from "./KanbanCard";
 import type { KanbanColumn as KanbanColumnType } from "~/api/kanban/config/route";
-import type { KanbanCard as KanbanCardType } from "~/api/kanban/cards/types";
+import type { KanbanCardRow } from "~/lib/supabase/database.types";
+import { KanbanColumnCardContainer } from "./KanbanColumnCardContainer";
 
 interface KanbanColumnProps {
   column: KanbanColumnType;
-  cards: KanbanCardType[];
+  cards: KanbanCardRow[];
   onRename: (id: string, newTitle: string) => void;
   onDelete: (id: string) => void;
   isEditMode?: boolean;
+  isDraggingCard?: boolean;
+  hideImages?: boolean;
 }
 
 export function KanbanColumn({
@@ -42,6 +40,8 @@ export function KanbanColumn({
   onRename,
   onDelete,
   isEditMode = false,
+  isDraggingCard = false,
+  hideImages = false,
 }: KanbanColumnProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -153,32 +153,12 @@ export function KanbanColumn({
         </div>
 
         {/* Cards Container */}
-        <div className="flex-1 overflow-y-auto p-2 sm:p-3">
-          <SortableContext
-            items={cards.map((card) => card.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            {cards.length === 0 ? (
-              <div
-                className={`flex h-24 flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors sm:h-32 ${
-                  isOver
-                    ? "border-primary bg-primary/5"
-                    : "border-muted-foreground/20"
-                }`}
-              >
-                <p className="text-muted-foreground text-xs sm:text-sm">
-                  {isOver ? "Drop here" : "No cards"}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-1.5 sm:space-y-2">
-                {cards.map((card) => (
-                  <KanbanCard key={card.id} card={card} />
-                ))}
-              </div>
-            )}
-          </SortableContext>
-        </div>
+        <KanbanColumnCardContainer
+          columnName={column.title}
+          cards={cards}
+          isDraggingCard={isDraggingCard}
+          hideImages={hideImages}
+        />
       </div>
 
       {/* Delete Confirmation Dialog */}

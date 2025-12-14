@@ -86,6 +86,27 @@ export interface Database {
         };
         Relationships: [];
       };
+      users: {
+        Row: {
+          onshape_user_id: string;
+          name: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          onshape_user_id: string;
+          name?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          onshape_user_id?: string;
+          name?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -115,3 +136,6 @@ export type KanbanCardUpdate = Tables<"kanban_cards">["Update"];
 export type KanbanConfigRow = Tables<"kanban_config">["Row"];
 export type KanbanConfigInsert = Tables<"kanban_config">["Insert"];
 
+export type UserRow = Tables<"users">["Row"];
+export type UserInsert = Tables<"users">["Insert"];
+export type UserUpdate = Tables<"users">["Update"];

@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { exchangeCodeForToken } from "~/lib/onshapeApi/auth";
+import { exchangeCodeForToken, onshapeApiRequest } from "~/lib/onshapeApi/auth";
 import {
   clearOAuthState,
   clearOnshapeTokens,
   getOAuthState,
   setOnshapeTokens,
 } from "~/lib/onshapeAuth";
+import { upsertUser } from "~/lib/supabase/users";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -152,6 +153,58 @@ export async function GET(request: Request) {
     // Clear OAuth state after successful exchange
     await clearOAuthState();
     console.log("[AUTH CALLBACK] OAuth state cleared");
+
+    // Fetch user info from Onshape API and save to database
+    try {
+      console.log("[AUTH CALLBACK] Fetching user info from Onshape API...");
+      const userResponse = await onshapeApiRequest(
+        tokenResponse.access_token,
+        "/users/current"
+      );
+
+      if (userResponse.ok) {
+        const userData = (await userResponse.json()) as {
+          id: string;
+          firstName?: string;
+          lastName?: string;
+          email?: string;
+          name?: string;
+        };
+
+        console.log("[AUTH CALLBACK] User data received:", {
+          id: userData.id,
+          hasFirstName: !!userData.firstName,
+        });
+
+        // Save user to database (first name + last initial)
+        const savedUser = await upsertUser(
+          userData.id,
+          userData.firstName || null,
+          userData.lastName || null
+        );
+
+        if (savedUser) {
+          console.log("[AUTH CALLBACK] User saved to database successfully");
+        } else {
+          console.warn(
+            "[AUTH CALLBACK] Failed to save user to database (non-fatal)"
+          );
+        }
+      } else {
+        const errorText = await userResponse
+          .text()
+          .catch(() => "Unable to read error");
+        console.warn(
+          `[AUTH CALLBACK] Failed to fetch user info (non-fatal). Status: ${userResponse.status}, Error: ${errorText}`
+        );
+      }
+    } catch (error) {
+      // Log error but don't fail authentication
+      console.error(
+        "[AUTH CALLBACK] Error fetching/saving user info (non-fatal):",
+        error
+      );
+    }
 
     // Always redirect back to signin page to check if other service needs auth
     const redirectTo = "/signin";
