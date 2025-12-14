@@ -87,6 +87,7 @@ export function MfgPartsClient({
     staleTime: 30 * 1000, // Cache for 30 seconds
   });
 
+  console.log("queryParams", queryParams);
   console.log("parts", parts);
 
   // Configure Fuse.js for fuzzy search
