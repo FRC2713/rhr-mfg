@@ -40,27 +40,34 @@ export default async function MfgParts({
   });
 
   // Prefetch parts data if we have the required parameters
+  let prefetchError: string | null = null;
   if (queryParams.documentId) {
-    await queryClient.prefetchQuery({
-      queryKey: getPartsQueryKey(queryParams),
-      queryFn: async () => {
-        try {
-          return await fetchPartsFromOnshape(queryParams);
-        } catch (error) {
-          console.error("Error prefetching parts:", error);
-          // Return empty array on error - client will handle retry
-          return [];
-        }
-      },
-      staleTime: 30 * 1000, // Cache for 30 seconds
-    });
+    try {
+      await queryClient.prefetchQuery({
+        queryKey: getPartsQueryKey(queryParams),
+        queryFn: async () => {
+          // Use read-only mode for server component prefetching (no token refresh)
+          return await fetchPartsFromOnshape(queryParams, false);
+        },
+        staleTime: 30 * 1000, // Cache for 30 seconds
+      });
+    } catch (error) {
+      console.error("Error prefetching parts:", error);
+      // Extract error message for display
+      if (error instanceof Error) {
+        prefetchError = error.message;
+      } else {
+        prefetchError = "Failed to fetch parts from Onshape";
+      }
+      // Don't set query data on error - let client handle it
+    }
   }
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <MfgPartsClient
         queryParams={queryParams}
-        error={null}
+        error={prefetchError}
         exampleUrl={null}
       />
     </HydrationBoundary>

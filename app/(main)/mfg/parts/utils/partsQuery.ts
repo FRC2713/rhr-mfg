@@ -38,7 +38,17 @@ export async function fetchParts(
   const response = await fetch(`/api/onshape/parts?${params.toString()}`);
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch parts: ${response.statusText}`);
+    // Try to extract error message from response
+    let errorMessage = `Failed to fetch parts: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+    } catch {
+      // If JSON parsing fails, use the default message
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();

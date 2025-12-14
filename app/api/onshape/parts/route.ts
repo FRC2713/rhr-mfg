@@ -23,21 +23,36 @@ export async function GET(request: NextRequest) {
 
   try {
     // Use shared utility function to fetch parts
-    const parts = await fetchPartsFromOnshape({
-      documentId,
-      instanceType: instanceType as "w" | "v" | "m",
-      instanceId,
-      elementId,
-      elementType: "", // Not used in fetching
-    });
+    // allowTokenRefresh=true because this is a Route Handler where cookies can be modified
+    const parts = await fetchPartsFromOnshape(
+      {
+        documentId,
+        instanceType: instanceType as "w" | "v" | "m",
+        instanceId,
+        elementId,
+        elementType: "", // Not used in fetching
+      },
+      true // Allow token refresh in route handlers
+    );
 
     // Return parts data as JSON
     return NextResponse.json(parts);
   } catch (error) {
     console.error("Error fetching parts from Onshape:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch parts" },
-      { status: 500 }
-    );
+
+    // Provide more specific error messages
+    let errorMessage = "Failed to fetch parts";
+    let statusCode = 500;
+
+    if (error instanceof Error) {
+      if (error.message.includes("Not authenticated")) {
+        errorMessage = "Not authenticated with Onshape. Please sign in again.";
+        statusCode = 401;
+      } else {
+        errorMessage = error.message;
+      }
+    }
+
+    return NextResponse.json({ error: errorMessage }, { status: statusCode });
   }
 }

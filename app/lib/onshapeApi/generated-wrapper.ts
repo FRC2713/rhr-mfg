@@ -17,6 +17,10 @@ import type { Auth } from "./generated/core/auth.gen";
 /**
  * Create a configured Onshape API client for use in server-side code (Next.js)
  * This automatically handles token refresh and authentication
+ *
+ * NOTE: This function will attempt to refresh tokens, so it should only be called
+ * from Route Handlers or Server Actions where cookies can be modified.
+ * For server components, use createOnshapeApiClientReadOnly() instead.
  */
 export async function createOnshapeApiClient(): Promise<Client> {
   const accessToken = await getValidOnshapeToken();
@@ -35,6 +39,33 @@ export async function createOnshapeApiClient(): Promise<Client> {
       }
       // For basic auth, you could return credentials here if needed
       // For now, we'll let bearer auth handle it
+      return undefined;
+    },
+  };
+
+  generatedClient.setConfig(config);
+  return generatedClient;
+}
+
+/**
+ * Create a configured Onshape API client for server components (read-only)
+ * This does NOT attempt to refresh tokens, so it's safe to use during server component rendering
+ * If the token is expired, it will throw an error that should be handled by the client
+ */
+export async function createOnshapeApiClientReadOnly(): Promise<Client> {
+  const { getOnshapeTokenWithoutRefresh } = await import("../tokenRefresh");
+  const accessToken = await getOnshapeTokenWithoutRefresh();
+
+  if (!accessToken) {
+    throw new Error("Not authenticated with Onshape");
+  }
+
+  // Configure the client with bearer token authentication
+  const config: Config = {
+    auth: async (auth: Auth) => {
+      if (auth.scheme === "bearer" && auth.type === "http") {
+        return accessToken;
+      }
       return undefined;
     },
   };

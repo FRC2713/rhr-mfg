@@ -23,7 +23,33 @@ export function needsRefresh(expiresAt: number | null): boolean {
 }
 
 /**
- * Refresh Onshape token if needed (for server components and route handlers)
+ * Get Onshape token without refreshing (read-only, for server components)
+ * This should be used during server component rendering where cookies cannot be modified
+ */
+export async function getOnshapeTokenWithoutRefresh(): Promise<string | null> {
+  try {
+    const { accessToken, expiresAt } = await getOnshapeTokens();
+
+    // If no token, return null
+    if (!accessToken) {
+      return null;
+    }
+
+    // If token is expired, return null (don't try to refresh here)
+    if (expiresAt && Date.now() >= expiresAt) {
+      return null;
+    }
+
+    return accessToken;
+  } catch (error) {
+    console.error("[TOKEN] Error getting token:", error);
+    return null;
+  }
+}
+
+/**
+ * Refresh Onshape token if needed (for route handlers and server actions only)
+ * This function can modify cookies, so it should only be called from contexts where that's allowed
  */
 export async function refreshOnshapeTokenIfNeeded(): Promise<string | null> {
   try {
@@ -55,7 +81,7 @@ export async function refreshOnshapeTokenIfNeeded(): Promise<string | null> {
 
       const newExpiresAt = Date.now() + tokenResponse.expires_in * 1000;
 
-      // Update cookies
+      // Update cookies (only works in Route Handlers or Server Actions)
       await setOnshapeTokens(
         tokenResponse.access_token,
         tokenResponse.refresh_token,
