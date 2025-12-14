@@ -87,42 +87,8 @@ export function MfgPartsClient({
     staleTime: 30 * 1000, // Cache for 30 seconds
   });
 
-  /**
-  // Fetch parts data client-side using TanStack Query
-  const {
-    data: parts = [],
-    isLoading: isLoadingParts,
-    error: partsError,
-  } = useQuery<BtPartMetadataInfo[]>({
-    queryKey: [
-      "parts",
-      queryParams?.documentId,
-      queryParams?.instanceId,
-      queryParams?.elementId,
-    ],
-    queryFn: async () => {
-      if (!queryParams?.documentId) {
-        return [];
-      }
+  console.log("parts", parts);
 
-      const params = new URLSearchParams({
-        documentId: queryParams.documentId,
-        instanceType: queryParams.instanceType,
-        instanceId: queryParams.instanceId!,
-        elementId: queryParams.elementId!,
-        withThumbnails: "true",
-      });
-
-      const response = await fetch(`/api/onshape/parts?${params}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch parts");
-      }
-      return response.json();
-    },
-    enabled: !!queryParams?.documentId,
-    staleTime: 30 * 1000, // Cache for 30 seconds
-  });
-*/
   // Configure Fuse.js for fuzzy search
   const fuse = useMemo(() => {
     return new Fuse(parts, {
