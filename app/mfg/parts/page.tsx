@@ -12,7 +12,7 @@ export const metadata: Metadata = {
  */
 export type PartsPageSearchParams = {
   documentId: string;
-  instanceType: string;
+  instanceType: "w" | "v" | "m";
   instanceId: string;
   elementId: string;
   elementType: string;

@@ -23,6 +23,8 @@ import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import type { KanbanCard } from "~/api/kanban/cards/types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import { PartsPageSearchParams } from "./page";
+import { getPartsWmvOptions } from "~/lib/onshapeApi/generated/@tanstack/react-query.gen";
+import { useOnshapeClient } from "~/lib/onshapeApi/useOnshapeClient";
 
 interface MfgPartsClientProps {
   queryParams: PartsPageSearchParams;
@@ -40,6 +42,7 @@ export function MfgPartsClient({
     "none" | "name" | "partNumber" | "mfgState" | "createdAt" | "updatedAt"
   >("none");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const client = useOnshapeClient();
 
   // Fetch Kanban data client-side
   const { data: kanbanCardsData } = useQuery<{ cards: KanbanCard[] }>({
@@ -63,7 +66,28 @@ export function MfgPartsClient({
   });
 
   const kanbanCards = kanbanCardsData?.cards || [];
+  const {
+    data: parts = [],
+    isLoading: isLoadingParts,
+    error: partsError,
+  } = useQuery({
+    ...getPartsWmvOptions({
+      client,
+      path: {
+        did: queryParams.documentId,
+        wvm: queryParams.instanceType,
+        wvmid: queryParams.instanceId,
+      },
+      query: {
+        elementId: queryParams.elementId,
+        withThumbnails: true,
+      },
+    }),
+    enabled: !!queryParams?.documentId,
+    staleTime: 30 * 1000, // Cache for 30 seconds
+  });
 
+  /**
   // Fetch parts data client-side using TanStack Query
   const {
     data: parts = [],
@@ -98,7 +122,7 @@ export function MfgPartsClient({
     enabled: !!queryParams?.documentId,
     staleTime: 30 * 1000, // Cache for 30 seconds
   });
-
+*/
   // Configure Fuse.js for fuzzy search
   const fuse = useMemo(() => {
     return new Fuse(parts, {
