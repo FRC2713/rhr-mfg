@@ -95,12 +95,12 @@ export function KanbanColumn({
       >
         {/* Column Header */}
         <div className="bg-muted/30 flex items-center gap-2 border-b px-2 py-2 sm:px-3 sm:py-3">
-          {/* Drag Handle - only visible in edit mode */}
+          {/* Drag Handle - Always visible on touch devices, hover-only on desktop */}
           {isEditMode && (
             <button
               {...attributes}
               {...listeners}
-              className="hover:bg-muted cursor-grab touch-none rounded p-1 opacity-0 transition-all group-hover/column:opacity-100 active:cursor-grabbing"
+              className="active:bg-muted hover:bg-muted cursor-grab touch-none rounded p-1 opacity-60 transition-all group-hover/column:opacity-100 hover:opacity-100 active:cursor-grabbing active:opacity-100"
               aria-label="Drag to reorder column"
             >
               <GripVertical className="text-muted-foreground size-4" />
@@ -121,14 +121,14 @@ export function KanbanColumn({
             </span>
           </div>
 
-          {/* Column Menu - only visible in edit mode */}
+          {/* Column Menu - Always visible on touch devices, hover-only on desktop */}
           {isEditMode && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-8 opacity-0 transition-opacity group-hover/column:opacity-100"
+                  className="size-8 opacity-60 transition-opacity group-hover/column:opacity-100 hover:opacity-100 active:opacity-100"
                 >
                   <MoreHorizontal className="size-4" />
                   <span className="sr-only">Column options</span>

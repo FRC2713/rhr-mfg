@@ -15,7 +15,7 @@ export default async function AuthStatus() {
               {onshape ? (
                 <span className="text-green-600">✓ Authenticated</span>
               ) : (
-                <span className="text-red-600">✗ Not authenticated</span>
+                <span className="text-destructive">✗ Not authenticated</span>
               )}
             </p>
           </div>

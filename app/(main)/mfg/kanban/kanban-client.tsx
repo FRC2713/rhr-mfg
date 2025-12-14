@@ -113,10 +113,6 @@ export function MfgKanbanClient() {
                 <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
                   Kanban Board
                 </h1>
-                <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
-                  Organize your manufacturing workflow with drag-and-drop
-                  columns and cards
-                </p>
               </div>
             </div>
 
@@ -180,7 +176,6 @@ export function MfgKanbanClient() {
             config={config}
             onConfigChange={handleConfigChange}
             isEditMode={isEditMode}
-            originalConfig={originalConfig}
           />
         ) : (
           <div className="flex h-full items-center justify-center">

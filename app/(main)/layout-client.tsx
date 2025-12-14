@@ -19,7 +19,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { Home, RefreshCw, User, LogIn, LogOut } from "lucide-react";
+import {
+  Home,
+  RefreshCw,
+  User,
+  LogIn,
+  LogOut,
+  Moon,
+  Sun,
+  Monitor,
+} from "lucide-react";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 
 function getBreadcrumbs(pathname: string) {
   const paths = pathname.split("/").filter(Boolean);
@@ -71,13 +82,20 @@ export function MainLayoutClient({
   const pathname = usePathname();
   const router = useRouter();
   const breadcrumbs = getBreadcrumbs(pathname);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Avoid hydration mismatch by only showing theme switcher after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleRefresh = () => {
     router.refresh();
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-full flex-col">
       {/* Breadcrumbs */}
       <div className="bg-background/95 supports-[backdrop-filter]:bg-background/60 border-b backdrop-blur">
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
@@ -141,6 +159,42 @@ export function MainLayoutClient({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Theme</DropdownMenuLabel>
+                {mounted && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => setTheme("light")}
+                      className="flex items-center"
+                    >
+                      <Sun className="mr-2 h-4 w-4" />
+                      <span>Light</span>
+                      {theme === "light" && (
+                        <span className="ml-auto text-xs">✓</span>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setTheme("dark")}
+                      className="flex items-center"
+                    >
+                      <Moon className="mr-2 h-4 w-4" />
+                      <span>Dark</span>
+                      {theme === "dark" && (
+                        <span className="ml-auto text-xs">✓</span>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setTheme("system")}
+                      className="flex items-center"
+                    >
+                      <Monitor className="mr-2 h-4 w-4" />
+                      <span>System</span>
+                      {theme === "system" && (
+                        <span className="ml-auto text-xs">✓</span>
+                      )}
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuSeparator />
                 <DropdownMenuLabel>Authentication</DropdownMenuLabel>
                 <DropdownMenuSeparator />
 

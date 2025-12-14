@@ -190,7 +190,7 @@ export function KanbanCard({ card }: KanbanCardProps) {
     card.assignee || card.material || card.machine || card.dueDate;
 
   return (
-    <>
+    <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
       <Card
         ref={setNodeRef}
         style={style}
@@ -206,11 +206,11 @@ export function KanbanCard({ card }: KanbanCardProps) {
         <div className="relative">
           {/* Card Header */}
           <div className="flex items-start gap-2 p-2.5 pb-2 sm:p-3 sm:pb-2">
-            {/* Drag Handle */}
+            {/* Drag Handle - Always visible on touch devices, hover-only on desktop */}
             <button
               {...attributes}
               {...listeners}
-              className="mt-0.5 cursor-grab touch-none opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
+              className="mt-0.5 cursor-grab touch-none opacity-60 transition-opacity group-hover:opacity-100 hover:opacity-100 active:cursor-grabbing active:opacity-100"
               aria-label="Drag to reorder"
             >
               <GripVertical className="text-muted-foreground size-4" />
@@ -220,219 +220,27 @@ export function KanbanCard({ card }: KanbanCardProps) {
             <h3 className="line-clamp-2 flex-1 text-xs leading-tight font-semibold sm:text-sm">
               {card.title}
             </h3>
-
-            {/* Info Button */}
-            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                  onClick={handleInfoClick}
-                >
-                  <Info className="size-4" />
-                  <span className="sr-only">View details</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent className="flex w-full flex-col sm:max-w-lg">
-                <SheetHeader className="space-y-1">
-                  <SheetTitle className="text-xl">{card.title}</SheetTitle>
-                  <SheetDescription className="flex items-center gap-2">
-                    <Clock className="size-3" />
-                    Created {formatDate(card.dateCreated)}
-                    {card.createdBy && ` by ${card.createdBy}`}
-                  </SheetDescription>
-                </SheetHeader>
-
-                <div className="mt-6 flex-1 space-y-6 overflow-y-auto">
-                  {/* Image Section */}
-                  {imageUrl && !imageError && (
-                    <div className="bg-muted/50 overflow-hidden rounded-lg border">
-                      <img
-                        src={imageUrl}
-                        alt={card.title}
-                        className="h-auto w-full object-contain"
-                        onError={() => setImageError(true)}
-                        style={{ maxHeight: "300px" }}
-                      />
-                    </div>
-                  )}
-
-                  {/* Description */}
-                  {card.content && (
-                    <div className="space-y-2">
-                      <h4 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
-                        Description
-                      </h4>
-                      <div className="bg-muted/50 rounded-lg p-4">
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                          {card.content}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Details Grid */}
-                  {hasMeta && (
-                    <div className="space-y-2">
-                      <h4 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
-                        Details
-                      </h4>
-                      <div className="bg-card grid gap-3 rounded-lg border p-4">
-                        {card.assignee && (
-                          <div className="flex items-center gap-3">
-                            <div className="bg-primary/10 flex size-8 items-center justify-center rounded-full">
-                              <User className="text-primary size-4" />
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground text-xs">
-                                Assignee
-                              </p>
-                              <p className="font-medium">{card.assignee}</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {card.material && (
-                          <div className="flex items-center gap-3">
-                            <div className="flex size-8 items-center justify-center rounded-full bg-amber-500/10">
-                              <Box className="size-4 text-amber-600" />
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground text-xs">
-                                Material
-                              </p>
-                              <p className="font-medium">{card.material}</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {card.machine && (
-                          <div className="flex items-center gap-3">
-                            <div className="flex size-8 items-center justify-center rounded-full bg-blue-500/10">
-                              <Wrench className="size-4 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground text-xs">
-                                Machine
-                              </p>
-                              <p className="font-medium">{card.machine}</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {card.dueDate &&
-                          (() => {
-                            const urgency = getDueDateUrgency(card.dueDate);
-                            const isOverdue = urgency.variant === "destructive";
-                            const isSoon = urgency.className !== undefined;
-                            return (
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className={`flex size-8 items-center justify-center rounded-full ${
-                                    isOverdue
-                                      ? "bg-destructive/10"
-                                      : isSoon
-                                        ? "bg-amber-500/10"
-                                        : "bg-muted"
-                                  }`}
-                                >
-                                  <Calendar
-                                    className={`size-4 ${
-                                      isOverdue
-                                        ? "text-destructive"
-                                        : isSoon
-                                          ? "text-amber-600"
-                                          : "text-muted-foreground"
-                                    }`}
-                                  />
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground text-xs">
-                                    Due Date
-                                  </p>
-                                  <p className="font-medium">
-                                    {formatDate(card.dueDate)}
-                                    <span className="text-muted-foreground ml-2 text-xs">
-                                      ({formatRelativeTime(card.dueDate)})
-                                    </span>
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Timestamps */}
-                  <div className="rounded-lg border border-dashed p-4">
-                    <div className="text-muted-foreground flex items-center justify-between text-xs">
-                      <span>Created</span>
-                      <span>{formatDate(card.dateCreated)}</span>
-                    </div>
-                    {card.dateCreated !== card.dateUpdated && (
-                      <div className="text-muted-foreground mt-2 flex items-center justify-between text-xs">
-                        <span>Last updated</span>
-                        <span>{formatDate(card.dateUpdated)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Delete Action - Sticky at bottom */}
-                <div className="mt-auto border-t pt-4">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground w-full"
-                        disabled={deleteCardMutation.isPending}
-                      >
-                        <Trash2 className="mr-2 size-4" />
-                        {deleteCardMutation.isPending
-                          ? "Deleting..."
-                          : "Delete Card"}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete this card?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently delete "{card.title}". This
-                          action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleDelete}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </SheetContent>
-            </Sheet>
           </div>
 
-          {/* Card Image */}
+          {/* Card Image - Clickable to open drawer */}
           {imageUrl && !imageError && (
-            <div className="px-2.5 pb-2 sm:px-3">
-              <div className="bg-muted/50 overflow-hidden rounded-md border">
-                <img
-                  src={imageUrl}
-                  alt={card.title}
-                  className="h-auto w-full object-contain"
-                  onError={() => setImageError(true)}
-                  style={{ maxHeight: "120px" }}
-                />
-              </div>
-            </div>
+            <SheetTrigger asChild>
+              <button
+                className="w-full px-2.5 pb-2 text-left sm:px-3"
+                onClick={handleInfoClick}
+                aria-label="View card details"
+              >
+                <div className="bg-muted/50 cursor-pointer overflow-hidden rounded-md border transition-opacity hover:opacity-90 active:opacity-80">
+                  <img
+                    src={imageUrl}
+                    alt={card.title}
+                    className="pointer-events-none h-auto w-full object-contain"
+                    onError={() => setImageError(true)}
+                    style={{ maxHeight: "120px" }}
+                  />
+                </div>
+              </button>
+            </SheetTrigger>
           )}
 
           {/* Card Meta */}
@@ -482,6 +290,182 @@ export function KanbanCard({ card }: KanbanCardProps) {
           )}
         </div>
       </Card>
-    </>
+
+      <SheetContent className="flex w-full flex-col sm:max-w-lg">
+        <SheetHeader className="space-y-1">
+          <SheetTitle className="text-xl">{card.title}</SheetTitle>
+          <SheetDescription className="flex items-center gap-2">
+            <Clock className="size-3" />
+            Created {formatDate(card.dateCreated)}
+            {card.createdBy && ` by ${card.createdBy}`}
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-6 flex-1 space-y-6 overflow-y-auto px-4">
+          {/* Image Section */}
+          {imageUrl && !imageError && (
+            <div className="bg-muted/50 overflow-hidden rounded-lg border">
+              <img
+                src={imageUrl}
+                alt={card.title}
+                className="h-auto w-full object-contain"
+                onError={() => setImageError(true)}
+                style={{ maxHeight: "300px" }}
+              />
+            </div>
+          )}
+
+          {/* Description */}
+          {card.content && (
+            <div className="space-y-2">
+              <h4 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
+                Description
+              </h4>
+              <div className="bg-muted/50 rounded-lg p-4">
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                  {card.content}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Details Grid */}
+          {hasMeta && (
+            <div className="space-y-2">
+              <h4 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
+                Details
+              </h4>
+              <div className="bg-card grid gap-3 rounded-lg border p-4">
+                {card.assignee && (
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary/10 flex size-8 items-center justify-center rounded-full">
+                      <User className="text-primary size-4" />
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Assignee</p>
+                      <p className="font-medium">{card.assignee}</p>
+                    </div>
+                  </div>
+                )}
+
+                {card.material && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-8 items-center justify-center rounded-full bg-amber-500/10">
+                      <Box className="size-4 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Material</p>
+                      <p className="font-medium">{card.material}</p>
+                    </div>
+                  </div>
+                )}
+
+                {card.machine && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-8 items-center justify-center rounded-full bg-blue-500/10">
+                      <Wrench className="size-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Machine</p>
+                      <p className="font-medium">{card.machine}</p>
+                    </div>
+                  </div>
+                )}
+
+                {card.dueDate &&
+                  (() => {
+                    const urgency = getDueDateUrgency(card.dueDate);
+                    const isOverdue = urgency.variant === "destructive";
+                    const isSoon = urgency.className !== undefined;
+                    return (
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex size-8 items-center justify-center rounded-full ${
+                            isOverdue
+                              ? "bg-destructive/10"
+                              : isSoon
+                                ? "bg-amber-500/10"
+                                : "bg-muted"
+                          }`}
+                        >
+                          <Calendar
+                            className={`size-4 ${
+                              isOverdue
+                                ? "text-destructive"
+                                : isSoon
+                                  ? "text-amber-600"
+                                  : "text-muted-foreground"
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs">
+                            Due Date
+                          </p>
+                          <p className="font-medium">
+                            {formatDate(card.dueDate)}
+                            <span className="text-muted-foreground ml-2 text-xs">
+                              ({formatRelativeTime(card.dueDate)})
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+              </div>
+            </div>
+          )}
+
+          {/* Timestamps */}
+          <div className="rounded-lg border border-dashed p-4">
+            <div className="text-muted-foreground flex items-center justify-between text-xs">
+              <span>Created</span>
+              <span>{formatDate(card.dateCreated)}</span>
+            </div>
+            {card.dateCreated !== card.dateUpdated && (
+              <div className="text-muted-foreground mt-2 flex items-center justify-between text-xs">
+                <span>Last updated</span>
+                <span>{formatDate(card.dateUpdated)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Delete Action - Sticky at bottom */}
+        <div className="mt-auto border-t pt-4">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground w-full"
+                disabled={deleteCardMutation.isPending}
+              >
+                <Trash2 className="mr-2 size-4" />
+                {deleteCardMutation.isPending ? "Deleting..." : "Delete Card"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this card?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete "{card.title}". This action
+                  cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

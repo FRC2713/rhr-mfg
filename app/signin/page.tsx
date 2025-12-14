@@ -5,12 +5,15 @@ import { SignInClient } from "./signin-client";
 export default async function SignIn({
   searchParams,
 }: {
-  searchParams: { redirect?: string };
+  searchParams: Promise<{ redirect?: string }>;
 }) {
   // Check for redirect in URL params, or default
-  const redirectTo = searchParams.redirect || "/mfg/parts";
+  const queryParams = await searchParams;
+  const redirectTo = queryParams.redirect || "/mfg/parts";
 
+  console.log("[SIGNIN] ===== SignIn Page =====");
   console.log("[SIGNIN] redirectTo:", redirectTo);
+  console.log("[SIGNIN] NODE_ENV:", process.env.NODE_ENV);
 
   // Check authentication status
   const onshapeAuth = await isOnshapeAuthenticated();
@@ -23,5 +26,6 @@ export default async function SignIn({
     return redirect(redirectTo);
   }
 
+  console.log("[SIGNIN] Not authenticated, showing signin form");
   return <SignInClient onshapeAuth={onshapeAuth} redirectTo={redirectTo} />;
 }

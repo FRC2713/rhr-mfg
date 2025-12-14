@@ -33,14 +33,12 @@ interface KanbanBoardProps {
   config: KanbanConfig;
   onConfigChange: (config: KanbanConfig) => void;
   isEditMode?: boolean;
-  originalConfig?: KanbanConfig | null;
 }
 
 export function KanbanBoard({
   config,
   onConfigChange,
   isEditMode = false,
-  originalConfig,
 }: KanbanBoardProps) {
   const [columns, setColumns] = useState<KanbanColumnType[]>(config.columns);
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -100,12 +98,20 @@ export function KanbanBoard({
       formData.append("cardId", cardId);
       formData.append("columnId", columnId);
 
-      const response = await fetch("/mfg/parts", {
+      const response = await fetch("/api/mfg/parts/actions", {
         method: "POST",
         body: formData,
       });
 
-      // Server always returns JSON, so parse it directly
+      // Check content type before parsing
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(
+          `Expected JSON response but got ${contentType}. Response: ${text.substring(0, 100)}`
+        );
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -363,16 +369,7 @@ export function KanbanBoard({
       </div>
 
       {/* Board Content */}
-      <div className="relative flex-1 overflow-hidden">
-        {/* Subtle grid background */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.015]"
-          style={{
-            backgroundImage: `radial-gradient(circle, currentColor 1px, transparent 1px)`,
-            backgroundSize: "24px 24px",
-          }}
-        />
-
+      <div className="flex-1">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -399,7 +396,7 @@ export function KanbanBoard({
               {isEditMode && (
                 <button
                   onClick={handleAddColumn}
-                  className="border-muted-foreground/20 bg-muted/20 text-muted-foreground hover:border-muted-foreground/40 hover:bg-muted/40 hover:text-foreground flex h-full w-[280px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-all sm:w-[320px]"
+                  className="border-muted-foreground/20 bg-muted/20 text-muted-foreground active:border-muted-foreground/40 active:bg-muted/40 active:text-foreground hover:border-muted-foreground/40 hover:bg-muted/40 hover:text-foreground flex h-full w-[280px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-all sm:w-[320px]"
                 >
                   <Plus className="size-5 sm:size-6" />
                   <span className="text-xs font-medium sm:text-sm">

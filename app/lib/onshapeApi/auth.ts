@@ -21,12 +21,27 @@ export interface OnshapeAuthState {
 
 /**
  * Generate authorization URL for Onshape OAuth flow
- * 
+ *
  * Note: Onshape may derive scopes from your app registration in their developer portal.
  * If you get "invalid_scope" errors, try omitting the scope parameter entirely
  * or check what scopes are configured in your Onshape app registration.
  */
-export function getAuthorizationUrl(redirectUri: string, clientId: string, state?: string): string {
+export function getAuthorizationUrl(
+  redirectUri: string,
+  clientId: string,
+  state?: string
+): string {
+  console.log("[AUTH URL] Generating authorization URL");
+  console.log("[AUTH URL] redirectUri:", redirectUri);
+  console.log(
+    "[AUTH URL] clientId:",
+    clientId ? `${clientId.substring(0, 8)}...` : "(missing)"
+  );
+  console.log(
+    "[AUTH URL] state:",
+    state ? `${state.substring(0, 16)}...` : "(missing)"
+  );
+
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
@@ -39,13 +54,18 @@ export function getAuthorizationUrl(redirectUri: string, clientId: string, state
   const scope = process.env.ONSHAPE_SCOPE;
   if (scope) {
     params.append("scope", scope);
+    console.log("[AUTH URL] scope:", scope);
+  } else {
+    console.log("[AUTH URL] scope: (using app registration defaults)");
   }
 
   if (state) {
     params.append("state", state);
   }
 
-  return `${ONSHAPE_AUTHORIZATION_URL}?${params.toString()}`;
+  const authUrl = `${ONSHAPE_AUTHORIZATION_URL}?${params.toString()}`;
+  console.log("[AUTH URL] Generated authorization URL:", authUrl);
+  return authUrl;
 }
 
 /**
@@ -57,11 +77,23 @@ export async function exchangeCodeForToken(
   clientId: string,
   clientSecret: string
 ): Promise<OnshapeTokenResponse> {
+  console.log("[TOKEN EXCHANGE] Exchanging code for token");
+  console.log("[TOKEN EXCHANGE] redirectUri:", redirectUri);
+  console.log(
+    "[TOKEN EXCHANGE] clientId:",
+    clientId ? `${clientId.substring(0, 8)}...` : "(missing)"
+  );
+  console.log(
+    "[TOKEN EXCHANGE] code:",
+    code ? `${code.substring(0, 16)}...` : "(missing)"
+  );
+  console.log("[TOKEN EXCHANGE] Token URL:", ONSHAPE_TOKEN_URL);
+
   const response = await fetch(ONSHAPE_TOKEN_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      "Accept": "application/json",
+      Accept: "application/json",
     },
     body: new URLSearchParams({
       grant_type: "authorization_code",
@@ -72,12 +104,18 @@ export async function exchangeCodeForToken(
     }).toString(),
   });
 
+  console.log("[TOKEN EXCHANGE] Response status:", response.status);
+  console.log("[TOKEN EXCHANGE] Response ok:", response.ok);
+
   if (!response.ok) {
     const error = await response.text();
+    console.error("[TOKEN EXCHANGE] Token exchange failed:", error);
     throw new Error(`Token exchange failed: ${error}`);
   }
 
-  return await response.json();
+  const tokenResponse = await response.json();
+  console.log("[TOKEN EXCHANGE] Token exchange successful");
+  return tokenResponse;
 }
 
 /**
@@ -92,7 +130,7 @@ export async function refreshAccessToken(
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      "Accept": "application/json",
+      Accept: "application/json",
     },
     body: new URLSearchParams({
       grant_type: "refresh_token",
@@ -119,17 +157,18 @@ export async function onshapeApiRequest(
   options: RequestInit = {}
 ): Promise<Response> {
   // Onshape API base URL
-  const baseUrl = endpoint.startsWith("http") ? "" : "https://cad.onshape.com/api";
+  const baseUrl = endpoint.startsWith("http")
+    ? ""
+    : "https://cad.onshape.com/api";
   const url = endpoint.startsWith("http") ? endpoint : `${baseUrl}${endpoint}`;
 
   return fetch(url, {
     ...options,
     headers: {
-      "Authorization": `Bearer ${accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
-      "Accept": "application/json",
+      Accept: "application/json",
       ...options.headers,
     },
   });
 }
-

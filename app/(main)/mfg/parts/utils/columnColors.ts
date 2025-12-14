@@ -15,7 +15,7 @@ export function getColumnColorClasses(color: string | null | undefined): {
     white: { bg: "bg-white", text: "text-black" },
     yellow: { bg: "bg-yellow-500", text: "text-white" },
     orange: { bg: "bg-orange-500", text: "text-white" },
-    red: { bg: "bg-red-500", text: "text-white" },
+    red: { bg: "bg-primary", text: "text-primary-foreground" },
     pink: { bg: "bg-pink-500", text: "text-white" },
     purple: { bg: "bg-purple-500", text: "text-white" },
     blue: { bg: "bg-blue-500", text: "text-white" },
