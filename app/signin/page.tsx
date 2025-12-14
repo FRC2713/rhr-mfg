@@ -9,7 +9,7 @@ export default async function SignIn({
 }) {
   // Check for redirect in URL params, or default
   const queryParams = await searchParams;
-  const redirectTo = queryParams.redirect || "/mfg/parts";
+  const redirectTo = queryParams.redirect || "/mfg/kanban";
 
   console.log("[SIGNIN] ===== SignIn Page =====");
   console.log("[SIGNIN] redirectTo:", redirectTo);

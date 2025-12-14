@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchPartsFromOnshape } from "~/(main)/mfg/parts/utils/partsQuery.server";
+import { fetchPartsFromOnshape } from "~/onshape_connector/utils/partsQuery.server";
 
 /**
  * API endpoint to fetch parts from Onshape with server-side authentication

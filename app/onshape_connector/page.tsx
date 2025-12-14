@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 
 /**
  * Query parameters for the parts page
- * @example /mfg/parts?elementType=PARTSTUDIO&documentId={$documentId}&instanceType={$workspaceOrVersion}&instanceId={$workspaceOrVersionId}&elementId={$elementId}
+ * @example /onshape_connector?elementType=PARTSTUDIO&documentId={$documentId}&instanceType={$workspaceOrVersion}&instanceId={$workspaceOrVersionId}&elementId={$elementId}
  */
 export type PartsPageSearchParams = {
   documentId: string;

@@ -3,10 +3,10 @@ import {
   handleAddKanbanCard,
   handleMoveKanbanCard,
   handleUpdateKanbanDueDate,
-} from "~/(main)/mfg/parts/actions/kanbanOperations";
-import { handlePartNumberUpdate } from "~/(main)/mfg/parts/actions/partNumberUpdate";
-import { createErrorResponse } from "~/(main)/mfg/parts/utils/errorHandling";
-import type { ActionResponse } from "~/(main)/mfg/parts/utils/types";
+} from "~/onshape_connector/actions/kanbanOperations";
+import { handlePartNumberUpdate } from "~/onshape_connector/actions/partNumberUpdate";
+import { createErrorResponse } from "~/onshape_connector/utils/errorHandling";
+import type { ActionResponse } from "~/onshape_connector/utils/types";
 
 /**
  * Main action handler that routes to specific action handlers
