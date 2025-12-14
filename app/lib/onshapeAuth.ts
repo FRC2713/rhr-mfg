@@ -1,9 +1,13 @@
 /**
  * Onshape Authentication Utilities
  * Simple cookie-based authentication without session abstraction
+ *
+ * NOTE: This file contains server-only functions that use next/headers.
+ * Client components should use API routes to access token functionality.
  */
 
 import { cookies } from "next/headers";
+import "server-only";
 
 const COOKIE_NAMES = {
   ACCESS_TOKEN: "onshape_access_token",
