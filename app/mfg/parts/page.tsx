@@ -21,9 +21,10 @@ export type PartsPageSearchParams = {
 export default async function MfgParts({
   searchParams,
 }: {
-  searchParams: PartsPageSearchParams;
+  searchParams: Promise<PartsPageSearchParams>;
 }) {
+  const queryParams = await searchParams;
   return (
-    <MfgPartsClient queryParams={searchParams} error={null} exampleUrl={null} />
+    <MfgPartsClient queryParams={queryParams} error={null} exampleUrl={null} />
   );
 }
