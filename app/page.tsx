@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-import { isOnshapeAuthenticated } from "~/lib/onshapeAuth";
 import { refreshOnshapeTokenIfNeeded } from "~/lib/tokenRefresh";
 import { HomeClient } from "./home-client";
 import type { Metadata } from "next";
@@ -10,13 +8,6 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  // Check Onshape authentication
-  const onshapeAuthenticated = await isOnshapeAuthenticated();
-
-  if (!onshapeAuthenticated) {
-    return redirect("/signin?redirect=/");
-  }
-
   // Refresh tokens if needed
   try {
     await refreshOnshapeTokenIfNeeded();

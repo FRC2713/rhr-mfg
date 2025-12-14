@@ -3,17 +3,6 @@
 export type { KanbanColumn } from "~/api/kanban/config/route";
 
 /**
- * Query parameters for the parts route
- */
-export interface PartsQueryParams {
-  documentId: string | null;
-  instanceType: string;
-  instanceId: string | null;
-  elementId: string | null;
-  elementType?: string | null;
-}
-
-/**
  * Action response type
  */
 export interface ActionResponse {
