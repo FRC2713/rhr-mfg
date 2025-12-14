@@ -1,4 +1,4 @@
-import { getOnshapeApiClient } from "./generated-wrapper";
+import { getOnshapeApiClient } from "./generated-wrapper-client";
 import { useEffect, useState } from "react";
 import type { Client } from "./generated/client/types.gen";
 

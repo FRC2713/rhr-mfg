@@ -1,6 +1,9 @@
 /**
- * Wrapper for the generated Onshape API client
+ * Server-only wrapper for the generated Onshape API client
  * This integrates the generated client with our existing authentication system
+ *
+ * NOTE: This file contains server-only functions that use tokenRefresh/onshapeAuth.
+ * For client-side usage, use generated-wrapper-client.ts instead.
  */
 
 import {
@@ -72,25 +75,8 @@ export async function createOnshapeApiClientFromRequest(
 }
 
 /**
- * Get the base generated client (requires manual token management)
- * Useful for client-side code where you manage tokens yourself
- */
-export function getOnshapeApiClient(accessToken: string): Client {
-  const config: Config = {
-    auth: async (auth: Auth) => {
-      if (auth.scheme === "bearer" && auth.type === "http") {
-        return accessToken;
-      }
-      return undefined;
-    },
-  };
-
-  generatedClient.setConfig(config);
-  return generatedClient;
-}
-
-/**
  * Re-export all SDK functions and types for convenience
+ * Note: For client-side usage, import from generated-wrapper-client.ts instead
  */
 export * from "./generated/sdk.gen";
 export * from "./generated/types.gen";

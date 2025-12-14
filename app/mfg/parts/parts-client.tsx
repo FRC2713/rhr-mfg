@@ -23,7 +23,7 @@ import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import type { KanbanCard } from "~/api/kanban/cards/types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import { PartsPageSearchParams } from "./page";
-import { getPartsWmvOptions } from "~/lib/onshapeApi/generated/@tanstack/react-query.gen";
+import { getPartsWmveOptions } from "~/lib/onshapeApi/generated/@tanstack/react-query.gen";
 import { useOnshapeClient } from "~/lib/onshapeApi/useOnshapeClient";
 
 interface MfgPartsClientProps {
@@ -71,19 +71,19 @@ export function MfgPartsClient({
     isLoading: isLoadingParts,
     error: partsError,
   } = useQuery({
-    ...getPartsWmvOptions({
+    ...getPartsWmveOptions({
       client,
       path: {
         did: queryParams.documentId,
         wvm: queryParams.instanceType,
         wvmid: queryParams.instanceId,
+        eid: queryParams.elementId,
       },
       query: {
-        elementId: queryParams.elementId,
         withThumbnails: true,
       },
     }),
-    enabled: !!queryParams?.documentId,
+    enabled: !!queryParams?.documentId && !!client,
     staleTime: 30 * 1000, // Cache for 30 seconds
   });
 
