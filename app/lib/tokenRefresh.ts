@@ -3,8 +3,12 @@
  * Provides utilities for automatically refreshing tokens before expiration
  */
 
-import { getSession } from "./session";
 import { refreshAccessToken as refreshOnshapeToken } from "./onshapeApi/auth";
+import {
+  clearOnshapeTokens,
+  getOnshapeTokens,
+  setOnshapeTokens,
+} from "./onshapeAuth";
 
 const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes before expiration
 
@@ -19,56 +23,52 @@ export function needsRefresh(expiresAt: number | null): boolean {
 }
 
 /**
- * Refresh Onshape token if needed (accepts session object)
+ * Refresh Onshape token if needed (for server components and route handlers)
  */
-export async function refreshOnshapeTokenIfNeededWithSession(session: any): Promise<string | null> {
-  const accessToken = session.get("onshapeAccessToken");
-  const refreshToken = session.get("onshapeRefreshToken");
-  const expiresAt = session.get("onshapeExpiresAt");
-
-  if (!accessToken || !refreshToken) {
-    return null;
-  }
-
-  // Check if token needs refresh
-  if (!needsRefresh(expiresAt)) {
-    return accessToken;
-  }
-
-  // Refresh token
-  const clientId = process.env.ONSHAPE_CLIENT_ID;
-  const clientSecret = process.env.ONSHAPE_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    throw new Error("Missing Onshape OAuth credentials");
-  }
-
+export async function refreshOnshapeTokenIfNeeded(): Promise<string | null> {
   try {
-    const tokenResponse = await refreshOnshapeToken(refreshToken, clientId, clientSecret);
-    
-    // Update session
-    session.set("onshapeAccessToken", tokenResponse.access_token);
-    session.set("onshapeRefreshToken", tokenResponse.refresh_token);
-    session.set("onshapeExpiresAt", Date.now() + tokenResponse.expires_in * 1000);
-    
-    return tokenResponse.access_token;
-  } catch (error) {
-    console.error("Failed to refresh Onshape token:", error);
-    // Clear invalid tokens
-    session.unset("onshapeAccessToken");
-    session.unset("onshapeRefreshToken");
-    session.unset("onshapeExpiresAt");
-    return null; // Return null instead of throwing
-  }
-}
+    const { accessToken, refreshToken, expiresAt } = await getOnshapeTokens();
 
-/**
- * Refresh Onshape token if needed (accepts request)
- */
-export async function refreshOnshapeTokenIfNeeded(request: Request): Promise<string | null> {
-  try {
-    const session = await getSession(request);
-    return await refreshOnshapeTokenIfNeededWithSession(session);
+    if (!accessToken || !refreshToken) {
+      return null;
+    }
+
+    // Check if token needs refresh
+    if (!needsRefresh(expiresAt)) {
+      return accessToken;
+    }
+
+    // Refresh token
+    const clientId = process.env.ONSHAPE_CLIENT_ID;
+    const clientSecret = process.env.ONSHAPE_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      throw new Error("Missing Onshape OAuth credentials");
+    }
+
+    try {
+      const tokenResponse = await refreshOnshapeToken(
+        refreshToken,
+        clientId,
+        clientSecret
+      );
+
+      const newExpiresAt = Date.now() + tokenResponse.expires_in * 1000;
+
+      // Update cookies
+      await setOnshapeTokens(
+        tokenResponse.access_token,
+        tokenResponse.refresh_token,
+        newExpiresAt
+      );
+
+      return tokenResponse.access_token;
+    } catch (error) {
+      console.error("Failed to refresh Onshape token:", error);
+      // Clear invalid tokens
+      await clearOnshapeTokens();
+      return null; // Return null instead of throwing
+    }
   } catch (error) {
     console.error("[TOKEN REFRESH] Error refreshing token:", error);
     return null;
@@ -76,9 +76,89 @@ export async function refreshOnshapeTokenIfNeeded(request: Request): Promise<str
 }
 
 /**
- * Get valid Onshape token, refreshing if necessary
+ * Refresh Onshape token if needed (accepts request - for compatibility)
+ * Note: This function reads cookies from the request headers
  */
-export async function getValidOnshapeToken(request: Request): Promise<string | null> {
-  return refreshOnshapeTokenIfNeeded(request);
+export async function refreshOnshapeTokenIfNeededFromRequest(
+  request: Request
+): Promise<string | null> {
+  try {
+    // Parse cookies from request
+    const cookieHeader = request.headers.get("Cookie");
+    if (!cookieHeader) {
+      return null;
+    }
+
+    const cookies = Object.fromEntries(
+      cookieHeader.split("; ").map((c) => {
+        const [key, ...values] = c.split("=");
+        return [key, decodeURIComponent(values.join("="))];
+      })
+    );
+
+    const accessToken = cookies.onshape_access_token || null;
+    const refreshToken = cookies.onshape_refresh_token || null;
+    const expiresAtStr = cookies.onshape_expires_at;
+    const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : null;
+
+    if (!accessToken || !refreshToken) {
+      return null;
+    }
+
+    // Check if token needs refresh
+    if (!needsRefresh(expiresAt)) {
+      return accessToken;
+    }
+
+    // Refresh token
+    const clientId = process.env.ONSHAPE_CLIENT_ID;
+    const clientSecret = process.env.ONSHAPE_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      throw new Error("Missing Onshape OAuth credentials");
+    }
+
+    try {
+      const tokenResponse = await refreshOnshapeToken(
+        refreshToken,
+        clientId,
+        clientSecret
+      );
+
+      const newExpiresAt = Date.now() + tokenResponse.expires_in * 1000;
+
+      // Update cookies (this will work in route handlers)
+      await setOnshapeTokens(
+        tokenResponse.access_token,
+        tokenResponse.refresh_token,
+        newExpiresAt
+      );
+
+      return tokenResponse.access_token;
+    } catch (error) {
+      console.error("Failed to refresh Onshape token:", error);
+      // Clear invalid tokens
+      await clearOnshapeTokens();
+      return null;
+    }
+  } catch (error) {
+    console.error("[TOKEN REFRESH] Error refreshing token:", error);
+    return null;
+  }
 }
 
+/**
+ * Get valid Onshape token, refreshing if necessary (for server components and route handlers)
+ */
+export async function getValidOnshapeToken(): Promise<string | null> {
+  return refreshOnshapeTokenIfNeeded();
+}
+
+/**
+ * Get valid Onshape token, refreshing if necessary (for request-based usage - compatibility)
+ */
+export async function getValidOnshapeTokenFromRequest(
+  request: Request
+): Promise<string | null> {
+  return refreshOnshapeTokenIfNeededFromRequest(request);
+}

@@ -1,6 +1,6 @@
-import { supabase } from "~/lib/supabase/client";
-import { getValidOnshapeToken } from "~/lib/tokenRefresh";
 import { logger } from "~/lib/logger";
+import { supabase } from "~/lib/supabase/client";
+import { getValidOnshapeTokenFromRequest } from "~/lib/tokenRefresh";
 
 interface ThumbnailParams {
   documentId: string;
@@ -31,7 +31,7 @@ export async function uploadOnshapeThumbnailToSupabase(
 ): Promise<string | null> {
   try {
     // 1. Get Onshape token
-    const accessToken = await getValidOnshapeToken(request);
+    const accessToken = await getValidOnshapeTokenFromRequest(request);
     if (!accessToken) {
       logger.error("[Images] No Onshape access token available");
       return null;
@@ -48,7 +48,9 @@ export async function uploadOnshapeThumbnailToSupabase(
     });
 
     if (!response.ok) {
-      logger.error(`[Images] Failed to fetch thumbnail from Onshape: ${response.status}`);
+      logger.error(
+        `[Images] Failed to fetch thumbnail from Onshape: ${response.status}`
+      );
       return null;
     }
 
@@ -92,20 +94,20 @@ function extractSupabaseFilePath(url: string): string | null {
     // https://<project-ref>.supabase.co/storage/v1/object/public/<bucket>/<file-path>
     const pathParts = urlObj.pathname.split("/");
     const publicIndex = pathParts.indexOf("public");
-    
+
     if (publicIndex === -1 || publicIndex === pathParts.length - 1) {
       return null;
     }
-    
+
     // Extract bucket and file path
     const bucket = pathParts[publicIndex + 1];
     const filePath = pathParts.slice(publicIndex + 2).join("/");
-    
+
     // Only process if it's from the card-images bucket
     if (bucket !== "card-images") {
       return null;
     }
-    
+
     return filePath;
   } catch {
     return null;
@@ -115,7 +117,9 @@ function extractSupabaseFilePath(url: string): string | null {
 /**
  * Delete an image from Supabase Storage if it's a Supabase URL
  */
-export async function deleteImageFromSupabase(imageUrl: string | undefined | null): Promise<void> {
+export async function deleteImageFromSupabase(
+  imageUrl: string | undefined | null
+): Promise<void> {
   if (!imageUrl) {
     return;
   }
@@ -142,4 +146,3 @@ export async function deleteImageFromSupabase(imageUrl: string | undefined | nul
     // Don't throw - card deletion should still succeed even if image deletion fails
   }
 }
-

@@ -1,4 +1,5 @@
-import { useFetcher } from "react-router";
+"use client";
+
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
@@ -12,9 +13,9 @@ import {
   PopoverTrigger,
 } from "~/components/ui/popover";
 import { cn } from "~/lib/utils";
-import type { KanbanCard } from "~/routes/api.kanban.cards/types";
-import type { KanbanColumn } from "~/routes/api.kanban.config";
-import type { PartsQueryParams } from "~/routes/mfg.parts/utils/types";
+import type { KanbanCard } from "~/api/kanban/cards/types";
+import type { KanbanColumn } from "~/api/kanban/config/route";
+import type { PartsQueryParams } from "~/mfg/parts/utils/types";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 
 interface PartDueDateProps {
@@ -34,7 +35,7 @@ interface PartDueDateProps {
 function parseLocalDate(dateString: string): Date {
   // If it's just a date (YYYY-MM-DD), parse it as local time to avoid timezone issues
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    const [year, month, day] = dateString.split('-').map(Number);
+    const [year, month, day] = dateString.split("-").map(Number);
     return new Date(year, month - 1, day);
   }
   // If it has time information, parse it normally
@@ -42,10 +43,14 @@ function parseLocalDate(dateString: string): Date {
 }
 
 export function PartDueDate({ card }: PartDueDateProps) {
-  const fetcher = useFetcher();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [result, setResult] = useState<{
+    success?: boolean;
+    error?: string;
+  } | null>(null);
+
   // Parse the card's dueDate only when it actually changes
   const cardDueDate = useMemo(() => {
     if (!card.dueDate) return undefined;
@@ -56,8 +61,10 @@ export function PartDueDate({ card }: PartDueDateProps) {
       return undefined;
     }
   }, [card.dueDate]);
-  
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(cardDueDate);
+
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    cardDueDate
+  );
   const hasRevalidatedRef = useRef(false);
   const lastSubmittedDateRef = useRef<string | null>(null);
 
@@ -67,7 +74,7 @@ export function PartDueDate({ card }: PartDueDateProps) {
     if (lastSubmittedDateRef.current !== null) {
       const submittedDateStr = lastSubmittedDateRef.current;
       const cardDateStr = cardDueDate ? format(cardDueDate, "yyyy-MM-dd") : "";
-      
+
       // Only update if the card date matches what we submitted (update complete)
       // Handle both cases: clearing (empty string) and setting a date
       if (submittedDateStr === cardDateStr) {
@@ -78,63 +85,91 @@ export function PartDueDate({ card }: PartDueDateProps) {
         return;
       }
     }
-    
-    if (fetcher.state !== "idle") {
+
+    if (isSubmitting) {
       return;
     }
-    
+
     // Compare dates by their date-only values to avoid unnecessary updates
-    const currentDateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : "";
+    const currentDateStr = selectedDate
+      ? format(selectedDate, "yyyy-MM-dd")
+      : "";
     const cardDateStr = cardDueDate ? format(cardDueDate, "yyyy-MM-dd") : "";
-    
+
     if (currentDateStr !== cardDateStr) {
       setSelectedDate(cardDueDate);
     }
-  }, [cardDueDate, selectedDate, fetcher.state]);
+  }, [cardDueDate, selectedDate, isSubmitting]);
 
   // Handle successful due date updates
   useEffect(() => {
-    if (fetcher.data?.success && fetcher.state === "idle" && !hasRevalidatedRef.current) {
+    if (result?.success && !isSubmitting && !hasRevalidatedRef.current) {
       hasRevalidatedRef.current = true;
       setOpen(false);
-      
+
       // Invalidate cards query to refresh the UI
       queryClient.invalidateQueries({ queryKey: ["kanban-cards"] });
     }
-  }, [fetcher.data?.success, fetcher.state, queryClient]);
+  }, [result?.success, isSubmitting, queryClient]);
 
-  const handleDateSelect = (date: Date | undefined) => {
+  const handleDateSelect = async (date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
       // Format date as ISO 8601 (YYYY-MM-DD)
       const isoDate = format(date, "yyyy-MM-dd");
-      
+
       // Track what we're submitting to avoid race conditions
       lastSubmittedDateRef.current = isoDate;
       hasRevalidatedRef.current = false;
-      
+      setIsSubmitting(true);
+      setResult(null);
+
       const formData = new FormData();
       formData.append("action", "updateDueDate");
       formData.append("cardId", card.id);
       formData.append("dueDate", isoDate);
-      
-      fetcher.submit(formData, { method: "post" });
+
+      try {
+        const response = await fetch("/api/mfg/parts/actions", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await response.json();
+        setResult(data);
+      } catch (error) {
+        setResult({ success: false, error: "Failed to update due date" });
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
-  const handleClearDate = () => {
+  const handleClearDate = async () => {
     setSelectedDate(undefined);
-    
+
     // Track that we're clearing the date
     lastSubmittedDateRef.current = "";
     hasRevalidatedRef.current = false;
-    
+    setIsSubmitting(true);
+    setResult(null);
+
     const formData = new FormData();
     formData.append("action", "updateDueDate");
     formData.append("cardId", card.id);
     formData.append("dueDate", "");
-    
-    fetcher.submit(formData, { method: "post" });
+
+    try {
+      const response = await fetch("/api/mfg/parts/actions", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+      setResult(data);
+    } catch (error) {
+      setResult({ success: false, error: "Failed to clear due date" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -146,13 +181,17 @@ export function PartDueDate({ card }: PartDueDateProps) {
             variant="outline"
             size="sm"
             className={cn(
-              "w-full justify-start text-left font-normal h-8",
+              "h-8 w-full justify-start text-left font-normal",
               !selectedDate && "text-muted-foreground"
             )}
-            disabled={fetcher.state === "submitting"}
+            disabled={isSubmitting}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {selectedDate ? format(selectedDate, "PPP") : <span>Set due date</span>}
+            {selectedDate ? (
+              format(selectedDate, "PPP")
+            ) : (
+              <span>Set due date</span>
+            )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
@@ -160,17 +199,17 @@ export function PartDueDate({ card }: PartDueDateProps) {
             mode="single"
             selected={selectedDate}
             onSelect={handleDateSelect}
-            disabled={fetcher.state === "submitting"}
+            disabled={isSubmitting}
             initialFocus
           />
           {selectedDate && (
-            <div className="p-3 border-t">
+            <div className="border-t p-3">
               <Button
                 variant="outline"
                 size="sm"
                 className="w-full"
                 onClick={handleClearDate}
-                disabled={fetcher.state === "submitting"}
+                disabled={isSubmitting}
               >
                 Clear date
               </Button>
@@ -178,10 +217,9 @@ export function PartDueDate({ card }: PartDueDateProps) {
           )}
         </PopoverContent>
       </Popover>
-      {fetcher.data && !fetcher.data.success && fetcher.data.error && (
-        <p className="text-xs text-destructive">{fetcher.data.error}</p>
+      {result && !result.success && result.error && (
+        <p className="text-destructive text-xs">{result.error}</p>
       )}
     </div>
   );
 }
-

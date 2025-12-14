@@ -3,8 +3,8 @@
  * Documentation: https://onshape-public.github.io/docs/
  */
 
+import { getValidOnshapeTokenFromRequest } from "../tokenRefresh";
 import { onshapeApiRequest } from "./auth";
-import { getValidOnshapeToken } from "../tokenRefresh";
 
 export interface OnshapeUser {
   id: string;
@@ -74,14 +74,19 @@ export class OnshapeClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const response = await onshapeApiRequest(this.accessToken, endpoint, options);
+    const response = await onshapeApiRequest(
+      this.accessToken,
+      endpoint,
+      options
+    );
 
     if (!response.ok) {
       let errorMessage = `Request failed with status ${response.status}`;
       try {
         const errorData = await response.json();
         if (errorData.message || errorData.error || errorData.errorMessage) {
-          errorMessage = errorData.message || errorData.error || errorData.errorMessage;
+          errorMessage =
+            errorData.message || errorData.error || errorData.errorMessage;
         }
       } catch {
         // If response isn't JSON, use default message
@@ -164,9 +169,16 @@ export class OnshapeClient {
    * @param wvmid Workspace/Version/Microversion ID
    * @param eid Element ID (Part Studio element)
    */
-  async getParts(did: string, wvm: string, wvmid: string, eid: string): Promise<OnshapePart[]> {
+  async getParts(
+    did: string,
+    wvm: string,
+    wvmid: string,
+    eid: string
+  ): Promise<OnshapePart[]> {
     const endpoint = `/partstudios/d/${did}/${wvm}/${wvmid}/e/${eid}/parts`;
-    const response = await this.get<OnshapePart[] | { parts: OnshapePart[] }>(endpoint);
+    const response = await this.get<OnshapePart[] | { parts: OnshapePart[] }>(
+      endpoint
+    );
     // Handle both response formats: direct array or wrapped in { parts: [...] }
     if (Array.isArray(response)) {
       return response;
@@ -181,7 +193,12 @@ export class OnshapeClient {
    * @param wvmid Workspace/Version/Microversion ID
    * @param eid Element ID
    */
-  async generateThumbnail(did: string, wvm: string, wvmid: string, eid: string): Promise<void> {
+  async generateThumbnail(
+    did: string,
+    wvm: string,
+    wvmid: string,
+    eid: string
+  ): Promise<void> {
     const endpoint = `/thumbnails/d/${did}/${wvm}/${wvmid}/e/${eid}`;
     await this.post(endpoint);
   }
@@ -191,11 +208,12 @@ export class OnshapeClient {
  * Create an Onshape client with automatic token refresh
  * This should be used in server-side loaders/actions
  */
-export async function createOnshapeClient(request: Request): Promise<OnshapeClient> {
-  const accessToken = await getValidOnshapeToken(request);
+export async function createOnshapeClient(
+  request: Request
+): Promise<OnshapeClient> {
+  const accessToken = await getValidOnshapeTokenFromRequest(request);
   if (!accessToken) {
     throw new Error("Not authenticated with Onshape");
   }
   return new OnshapeClient(accessToken);
 }
-

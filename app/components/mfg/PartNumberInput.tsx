@@ -1,10 +1,12 @@
-import { useFetcher, useRevalidator } from "react-router";
+"use client";
+
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { PartsQueryParams } from "~/routes/mfg.parts/utils/types";
+import type { PartsQueryParams } from "~/mfg/parts/utils/types";
 
 interface PartNumberInputProps {
   part: BtPartMetadataInfo;
@@ -16,72 +18,95 @@ interface PartNumberInputProps {
  */
 export function PartNumberInput({ part, queryParams }: PartNumberInputProps) {
   const [partNumberInput, setPartNumberInput] = useState("");
-  const fetcher = useFetcher();
-  const revalidator = useRevalidator();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [result, setResult] = useState<{
+    success?: boolean;
+    error?: string;
+  } | null>(null);
+  const router = useRouter();
   const lastSuccessRef = useRef<string | null>(null);
 
   // Handle successful part number update - only revalidate once per unique success
   useEffect(() => {
     // Only revalidate when we get a new success response (check by data identity)
-    if (fetcher.data?.success) {
-      const successKey = JSON.stringify(fetcher.data);
-      
+    if (result?.success) {
+      const successKey = JSON.stringify(result);
+
       // Only revalidate if this is a new success we haven't handled yet
       if (lastSuccessRef.current !== successKey) {
         setPartNumberInput("");
         lastSuccessRef.current = successKey;
-        
-        // Use requestIdleCallback or setTimeout to avoid revalidation loops
+
         // Revalidate after a short delay to ensure update has propagated
         setTimeout(() => {
-          revalidator.revalidate();
+          router.refresh();
         }, 100);
       }
-    } else if (fetcher.state === "idle" && !fetcher.data) {
-      // Reset when fetcher fully resets
+    } else if (!isSubmitting && !result) {
+      // Reset when fully resets
       lastSuccessRef.current = null;
     }
-  }, [fetcher.data, fetcher.state, revalidator]);
+  }, [result, isSubmitting, router]);
 
   // If part number is already set, just display it
   if (part.partNumber) {
     return (
-      <>Part Number: <code className="text-xs">{part.partNumber}</code></>
+      <>
+        Part Number: <code className="text-xs">{part.partNumber}</code>
+      </>
     );
   }
 
   // If we don't have required params, show "not set"
-  if (!queryParams.documentId || !queryParams.instanceId || !queryParams.elementId) {
+  if (
+    !queryParams.documentId ||
+    !queryParams.instanceId ||
+    !queryParams.elementId
+  ) {
     return (
-      <span className="text-xs text-muted-foreground">Part Number: Not set</span>
+      <span className="text-muted-foreground text-xs">
+        Part Number: Not set
+      </span>
     );
   }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setResult(null);
+
+    const formData = new FormData();
+    formData.append("partId", part.partId || part.id || "");
+    formData.append("partNumber", partNumberInput);
+    formData.append("documentId", queryParams.documentId || "");
+    formData.append("instanceType", queryParams.instanceType);
+    formData.append("instanceId", queryParams.instanceId || "");
+    formData.append("elementId", queryParams.elementId || "");
+
+    try {
+      const response = await fetch("/api/mfg/parts/actions", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+      setResult(data);
+    } catch (error) {
+      setResult({ success: false, error: "Failed to update part number" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Show input form
   return (
     <div className="space-y-2">
-      <Label htmlFor={`part-number-${part.partId || part.id}`} className="text-xs">
+      <Label
+        htmlFor={`part-number-${part.partId || part.id}`}
+        className="text-xs"
+      >
         Part Number:
       </Label>
-      <fetcher.Form 
-        method="post" 
-        className="flex gap-2"
-        onSubmit={(e) => {
-          console.log("[PartNumberInput] Form submitted:", {
-            partId: part.partId || part.id,
-            partNumber: partNumberInput,
-            documentId: queryParams.documentId,
-            instanceType: queryParams.instanceType,
-            instanceId: queryParams.instanceId,
-            elementId: queryParams.elementId,
-          });
-        }}
-      >
-        <input type="hidden" name="partId" value={part.partId || part.id || ""} />
-        <input type="hidden" name="documentId" value={queryParams.documentId} />
-        <input type="hidden" name="instanceType" value={queryParams.instanceType} />
-        <input type="hidden" name="instanceId" value={queryParams.instanceId} />
-        <input type="hidden" name="elementId" value={queryParams.elementId} />
+      <form onSubmit={handleSubmit} className="flex gap-2">
         <Input
           id={`part-number-${part.partId || part.id}`}
           name="partNumber"
@@ -91,24 +116,22 @@ export function PartNumberInput({ part, queryParams }: PartNumberInputProps) {
             setPartNumberInput(e.target.value);
           }}
           placeholder="Enter part number"
-          className="h-8 text-xs flex-1"
-          disabled={fetcher.state === "submitting"}
+          className="h-8 flex-1 text-xs"
+          disabled={isSubmitting}
         />
         <Button
           type="submit"
           size="sm"
           className="h-8"
-          disabled={fetcher.state === "submitting" || !partNumberInput.trim()}
+          disabled={isSubmitting || !partNumberInput.trim()}
         >
-          {fetcher.state === "submitting" ? "Setting..." : "Set"}
+          {isSubmitting ? "Setting..." : "Set"}
         </Button>
-      </fetcher.Form>
-      {fetcher.data && !fetcher.data.success && fetcher.data.error && (
-        <p className="text-xs text-destructive">
-          Error: {fetcher.data.error}
-        </p>
+      </form>
+      {result && !result.success && result.error && (
+        <p className="text-destructive text-xs">Error: {result.error}</p>
       )}
-      {fetcher.data?.success && (
+      {result?.success && (
         <p className="text-xs text-green-600 dark:text-green-400">
           Part number updated successfully!
         </p>
@@ -116,4 +139,3 @@ export function PartNumberInput({ part, queryParams }: PartNumberInputProps) {
     </div>
   );
 }
-

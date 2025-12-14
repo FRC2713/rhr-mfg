@@ -1,5 +1,6 @@
-import { useFetcher } from "react-router";
-import { useEffect, useRef } from "react";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
@@ -11,11 +12,11 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { KanbanCard } from "~/routes/api.kanban.cards/types";
-import type { KanbanColumn } from "~/routes/api.kanban.config";
+import type { KanbanCard } from "~/api/kanban/cards/types";
+import type { KanbanColumn } from "~/api/kanban/config/route";
 import { PartDueDate } from "./PartDueDate";
 
-import type { PartsQueryParams } from "~/routes/mfg.parts/utils/types";
+import type { PartsQueryParams } from "~/mfg/parts/utils/types";
 
 interface PartMfgStateProps {
   part: BtPartMetadataInfo;
@@ -27,28 +28,37 @@ interface PartMfgStateProps {
 /**
  * Component to display manufacturing tracking state for a part
  */
-export function PartMfgState({ part, queryParams, cards, columns }: PartMfgStateProps) {
-  const fetcher = useFetcher();
+export function PartMfgState({
+  part,
+  queryParams,
+  cards,
+  columns,
+}: PartMfgStateProps) {
   const queryClient = useQueryClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [result, setResult] = useState<{
+    success?: boolean;
+    error?: string;
+  } | null>(null);
   const hasRevalidatedRef = useRef(false);
 
   // Reset revalidation flag when starting a new operation
   useEffect(() => {
-    if (fetcher.state === "submitting") {
+    if (isSubmitting) {
       hasRevalidatedRef.current = false;
     }
-  }, [fetcher.state]);
+  }, [isSubmitting]);
 
   // Handle successful card operations - invalidate queries to refetch
   useEffect(() => {
-    if (fetcher.data?.success && fetcher.state === "idle" && !hasRevalidatedRef.current) {
+    if (result?.success && !isSubmitting && !hasRevalidatedRef.current) {
       hasRevalidatedRef.current = true;
       
       // Invalidate both cards and columns queries to refresh the UI
       queryClient.invalidateQueries({ queryKey: ["kanban-cards"] });
       queryClient.invalidateQueries({ queryKey: ["kanban-columns"] });
     }
-  }, [fetcher.data?.success, fetcher.state, queryClient]);
+  }, [result?.success, isSubmitting, queryClient]);
 
   // Don't show anything if part has no part number
   if (!part.partNumber) {
@@ -56,54 +66,87 @@ export function PartMfgState({ part, queryParams, cards, columns }: PartMfgState
   }
 
   // Find card with matching title (exact match)
-  const matchingCard = cards.find(card => card.title === part.partNumber);
+  const matchingCard = cards.find((card) => card.title === part.partNumber);
 
   // Find current column if card exists
   const currentColumn = matchingCard 
-    ? columns.find(col => col.id === matchingCard.columnId)
+    ? columns.find((col) => col.id === matchingCard.columnId)
     : null;
+
+  const handleAddCard = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setResult(null);
+
+    const formData = new FormData();
+    formData.append("action", "addCard");
+    formData.append("partNumber", part.partNumber || "");
+    if (queryParams.documentId) {
+      formData.append("documentId", queryParams.documentId);
+      formData.append("instanceType", queryParams.instanceType);
+      formData.append("instanceId", queryParams.instanceId || "");
+      formData.append("elementId", queryParams.elementId || "");
+      formData.append("partId", part.partId || part.id || "");
+    }
+
+    try {
+      const response = await fetch("/api/mfg/parts/actions", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+      setResult(data);
+    } catch (error) {
+      setResult({ success: false, error: "Failed to add card" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // If card not found, show "Add to manufacturing tracker" button
   if (!matchingCard) {
     return (
       <div className="space-y-2">
-        <fetcher.Form method="post">
-          <input type="hidden" name="action" value="addCard" />
-          <input type="hidden" name="partNumber" value={part.partNumber} />
-          {queryParams.documentId && (
-            <>
-              <input type="hidden" name="documentId" value={queryParams.documentId} />
-              <input type="hidden" name="instanceType" value={queryParams.instanceType} />
-              <input type="hidden" name="instanceId" value={queryParams.instanceId || ""} />
-              <input type="hidden" name="elementId" value={queryParams.elementId || ""} />
-              <input type="hidden" name="partId" value={part.partId || part.id || ""} />
-            </>
-          )}
+        <form onSubmit={handleAddCard}>
           <Button
             type="submit"
             size="sm"
             variant="outline"
             className="w-full"
-            disabled={fetcher.state === "submitting"}
+            disabled={isSubmitting}
           >
-            {fetcher.state === "submitting" ? "Adding..." : "Add to manufacturing tracker"}
+            {isSubmitting ? "Adding..." : "Add to manufacturing tracker"}
           </Button>
-        </fetcher.Form>
-        {fetcher.data && !fetcher.data.success && fetcher.data.error && (
-          <p className="text-xs text-destructive">{fetcher.data.error}</p>
+        </form>
+        {result && !result.success && result.error && (
+          <p className="text-destructive text-xs">{result.error}</p>
         )}
       </div>
     );
   }
 
   // If card found, show dropdown with column selection and badge
-  const handleColumnChange = (newColumnId: string) => {
+  const handleColumnChange = async (newColumnId: string) => {
+    setIsSubmitting(true);
+    setResult(null);
+
     const formData = new FormData();
     formData.append("action", "moveCard");
     formData.append("cardId", matchingCard.id);
     formData.append("columnId", newColumnId);
     
-    fetcher.submit(formData, { method: "post" });
+    try {
+      const response = await fetch("/api/mfg/parts/actions", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+      setResult(data);
+    } catch (error) {
+      setResult({ success: false, error: "Failed to move card" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -112,9 +155,9 @@ export function PartMfgState({ part, queryParams, cards, columns }: PartMfgState
       <Select
         value={currentColumn?.id || ""}
         onValueChange={handleColumnChange}
-        disabled={fetcher.state === "submitting"}
+        disabled={isSubmitting}
       >
-        <SelectTrigger className="w-full h-8">
+        <SelectTrigger className="h-8 w-full">
           <SelectValue placeholder="Select column...">
             {currentColumn?.title || "Select column..."}
           </SelectValue>
@@ -127,11 +170,15 @@ export function PartMfgState({ part, queryParams, cards, columns }: PartMfgState
           ))}
         </SelectContent>
       </Select>
-      <PartDueDate card={matchingCard} part={part} queryParams={queryParams} columns={columns} />
-      {fetcher.data && !fetcher.data.success && fetcher.data.error && (
-        <p className="text-xs text-destructive">{fetcher.data.error}</p>
+      <PartDueDate
+        card={matchingCard}
+        part={part}
+        queryParams={queryParams}
+        columns={columns}
+      />
+      {result && !result.success && result.error && (
+        <p className="text-destructive text-xs">{result.error}</p>
       )}
     </div>
   );
 }
-

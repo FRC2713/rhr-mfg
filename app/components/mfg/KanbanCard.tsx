@@ -35,7 +35,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "~/components/ui/sheet";
-import type { KanbanCard as KanbanCardType } from "~/routes/api.kanban.cards/types";
+import type { KanbanCard as KanbanCardType } from "~/api/kanban/cards/types";
 
 /**
  * Format a date string for display

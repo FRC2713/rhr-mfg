@@ -25,8 +25,8 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { KanbanColumnHeader } from "./KanbanColumnHeader";
 import { KanbanCard } from "./KanbanCard";
-import type { KanbanColumn as KanbanColumnType } from "~/routes/api.kanban.config";
-import type { KanbanCard as KanbanCardType } from "~/routes/api.kanban.cards/types";
+import type { KanbanColumn as KanbanColumnType } from "~/api/kanban/config/route";
+import type { KanbanCard as KanbanCardType } from "~/api/kanban/cards/types";
 
 interface KanbanColumnProps {
   column: KanbanColumnType;
@@ -87,23 +87,23 @@ export function KanbanColumn({
       <div
         ref={combinedRef}
         style={style}
-        className={`group/column flex h-full w-[320px] flex-shrink-0 flex-col rounded-xl border bg-card transition-all duration-200 ${
+        className={`group/column bg-card flex h-full w-[320px] flex-shrink-0 flex-col rounded-xl border transition-all duration-200 ${
           isDragging
-            ? "rotate-1 scale-[1.02] shadow-2xl ring-2 ring-primary/20"
+            ? "ring-primary/20 scale-[1.02] rotate-1 shadow-2xl ring-2"
             : ""
-        } ${isOver ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
+        } ${isOver ? "ring-primary ring-offset-background ring-2 ring-offset-2" : ""}`}
       >
         {/* Column Header */}
-        <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-3">
+        <div className="bg-muted/30 flex items-center gap-2 border-b px-3 py-3">
           {/* Drag Handle - only visible in edit mode */}
           {isEditMode && (
             <button
               {...attributes}
               {...listeners}
-              className="cursor-grab touch-none rounded p-1 opacity-0 transition-all hover:bg-muted group-hover/column:opacity-100 active:cursor-grabbing"
+              className="hover:bg-muted cursor-grab touch-none rounded p-1 opacity-0 transition-all group-hover/column:opacity-100 active:cursor-grabbing"
               aria-label="Drag to reorder column"
             >
-              <GripVertical className="size-4 text-muted-foreground" />
+              <GripVertical className="text-muted-foreground size-4" />
             </button>
           )}
 
@@ -116,7 +116,7 @@ export function KanbanColumn({
               onEditStart={() => setIsEditing(true)}
               onEditEnd={() => setIsEditing(false)}
             />
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+            <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium tabular-nums">
               {cards.length}
             </span>
           </div>
@@ -166,7 +166,7 @@ export function KanbanColumn({
                     : "border-muted-foreground/20"
                 }`}
               >
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   {isOver ? "Drop here" : "No cards"}
                 </p>
               </div>
