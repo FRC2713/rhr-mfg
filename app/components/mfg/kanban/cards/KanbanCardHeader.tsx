@@ -15,7 +15,7 @@ export function KanbanCardHeader({
     <div
       {...attributes}
       {...listeners}
-      className="justiy-start bg-secondary/50 flex w-full cursor-grab items-center gap-2 p-2.5 pb-2"
+      className="bg-secondary/50 flex w-full cursor-grab items-center justify-start gap-2 rounded-t-xl p-2.5 pb-2"
     >
       {/* Drag Handle - Always visible on touch devices, hover-only on desktop */}
       <button

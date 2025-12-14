@@ -397,7 +397,7 @@ export function KanbanBoardSkeleton() {
               <Skeleton className="h-4 w-6 rounded-full sm:h-5 sm:w-8" />
             </div>
             <div className="flex-1 space-y-2 p-2 sm:space-y-3 sm:p-3">
-              {[1, 2, 3].slice(0, Math.ceil(Math.random() * 3)).map((j) => (
+              {[1, 2, 3].map((j) => (
                 <Skeleton
                   key={j}
                   className="h-20 w-full rounded-lg sm:h-24"

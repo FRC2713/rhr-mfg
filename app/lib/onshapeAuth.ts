@@ -61,6 +61,7 @@ export async function getOnshapeTokens(): Promise<{
 
 /**
  * Set Onshape tokens in cookies
+ * @server-only - This function modifies cookies and can only be called from Server Actions or Route Handlers
  */
 export async function setOnshapeTokens(
   accessToken: string,
@@ -77,6 +78,7 @@ export async function setOnshapeTokens(
 
 /**
  * Clear Onshape tokens from cookies
+ * @server-only - This function modifies cookies and can only be called from Server Actions or Route Handlers
  */
 export async function clearOnshapeTokens(): Promise<void> {
   const cookieStore = await cookies();
@@ -95,6 +97,7 @@ export async function getOAuthState(): Promise<string | null> {
 
 /**
  * Set OAuth state in cookie
+ * @server-only - This function modifies cookies and can only be called from Server Actions or Route Handlers
  */
 export async function setOAuthState(state: string): Promise<void> {
   const cookieStore = await cookies();
@@ -104,6 +107,7 @@ export async function setOAuthState(state: string): Promise<void> {
 
 /**
  * Clear OAuth state cookie
+ * @server-only - This function modifies cookies and can only be called from Server Actions or Route Handlers
  */
 export async function clearOAuthState(): Promise<void> {
   const cookieStore = await cookies();

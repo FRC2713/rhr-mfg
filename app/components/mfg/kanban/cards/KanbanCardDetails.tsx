@@ -22,6 +22,7 @@ import {
 import type { KanbanCardRow, UserRow } from "~/lib/supabase/database.types";
 import type { UseMutationResult } from "@tanstack/react-query";
 import { AssignCardDialog } from "./AssignCardDialog";
+import { MachineSelectDialog } from "./MachineSelectDialog";
 
 /**
  * Format a date string for display
@@ -172,17 +173,7 @@ export function KanbanCardDetails({
                 </div>
               )}
 
-              {card.machine && (
-                <div className="flex items-center gap-3">
-                  <div className="flex size-8 items-center justify-center rounded-full bg-blue-500/10">
-                    <Wrench className="size-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs">Machine</p>
-                    <p className="font-medium">{card.machine}</p>
-                  </div>
-                </div>
-              )}
+              <MachineSelectDialog card={card} />
 
               {card.due_date &&
                 (() => {

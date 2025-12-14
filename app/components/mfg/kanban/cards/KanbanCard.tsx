@@ -174,7 +174,7 @@ export function KanbanCard({ card, hideImages = false }: KanbanCardProps) {
         <Card
           ref={setNodeRef}
           style={style}
-          className={`overflow-hidden transition-all duration-200 ${
+          className={`transition-all duration-200 ${
             isDragging
               ? "border-l-primary ring-primary/20 scale-105 rotate-2 shadow-2xl ring-2"
               : "hover:border-l-primary/50 hover:border-l-4 hover:shadow-md"

@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { KanbanColumnHeader } from "./KanbanColumnHeader";
+import { Badge } from "~/components/ui/badge";
 import type { KanbanColumn as KanbanColumnType } from "~/api/kanban/config/route";
 import type { KanbanCardRow } from "~/lib/supabase/database.types";
 import { KanbanColumnCardContainer } from "./KanbanColumnCardContainer";
@@ -94,7 +95,7 @@ export function KanbanColumn({
         } ${isOver ? "ring-primary ring-offset-background ring-2 ring-offset-2" : ""}`}
       >
         {/* Column Header */}
-        <div className="bg-muted/30 flex items-center gap-2 border-b px-2 py-2 sm:px-3 sm:py-3">
+        <div className="bg-muted/30 flex items-center gap-2 rounded-t-xl border-b px-2 py-2 sm:px-3 sm:py-3">
           {/* Drag Handle - Always visible on touch devices, hover-only on desktop */}
           {isEditMode && (
             <button
@@ -116,9 +117,9 @@ export function KanbanColumn({
               onEditStart={() => setIsEditing(true)}
               onEditEnd={() => setIsEditing(false)}
             />
-            <span className="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums sm:px-2 sm:text-xs">
+            <Badge variant="secondary" className="text-xs tabular-nums">
               {cards.length}
-            </span>
+            </Badge>
           </div>
 
           {/* Column Menu - Always visible on touch devices, hover-only on desktop */}

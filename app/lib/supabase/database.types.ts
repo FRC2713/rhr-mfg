@@ -107,6 +107,45 @@ export interface Database {
         };
         Relationships: [];
       };
+      equipment: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          category: string | null;
+          location: string | null;
+          status: string | null;
+          documentation_url: string | null;
+          image_urls: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          description?: string | null;
+          category?: string | null;
+          location?: string | null;
+          status?: string | null;
+          documentation_url?: string | null;
+          image_urls?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          category?: string | null;
+          location?: string | null;
+          status?: string | null;
+          documentation_url?: string | null;
+          image_urls?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -139,3 +178,7 @@ export type KanbanConfigInsert = Tables<"kanban_config">["Insert"];
 export type UserRow = Tables<"users">["Row"];
 export type UserInsert = Tables<"users">["Insert"];
 export type UserUpdate = Tables<"users">["Update"];
+
+export type EquipmentRow = Tables<"equipment">["Row"];
+export type EquipmentInsert = Tables<"equipment">["Insert"];
+export type EquipmentUpdate = Tables<"equipment">["Update"];

@@ -25,7 +25,7 @@ export function KanbanColumnCardContainer({
   }
   if (cards.length === 0) {
     return (
-      <div className="border-primary/20 flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors">
+      <div className="border-secondary/20 flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors">
         <SquareDashedKanban className="text-muted-foreground/50 size-6" />
         <p className="text-muted-foreground text-xs sm:text-sm">No cards</p>
       </div>

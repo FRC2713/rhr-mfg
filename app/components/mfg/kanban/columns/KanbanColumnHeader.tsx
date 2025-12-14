@@ -84,7 +84,7 @@ export function KanbanColumnHeader({
         onChange={(e) => setEditValue(e.target.value)}
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
-        className="h-7 bg-background font-semibold"
+        className="bg-background h-7 font-semibold"
       />
     );
   }
@@ -92,7 +92,7 @@ export function KanbanColumnHeader({
   return (
     <button
       onClick={handleStartEdit}
-      className="flex-1 truncate text-left font-semibold transition-colors hover:text-primary"
+      className="hover:text-primary flex-1 truncate text-left font-semibold transition-colors"
     >
       {title}
     </button>
