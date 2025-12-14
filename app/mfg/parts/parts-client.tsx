@@ -22,10 +22,10 @@ import { ErrorDisplay } from "~/components/mfg/ErrorDisplay";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import type { KanbanCard } from "~/api/kanban/cards/types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
-import type { PartsQueryParams } from "./utils/types";
+import { PartsPageSearchParams } from "./page";
 
 interface MfgPartsClientProps {
-  queryParams: PartsQueryParams;
+  queryParams: PartsPageSearchParams;
   error: string | null;
   exampleUrl: string | null | undefined;
 }
