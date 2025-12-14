@@ -87,7 +87,8 @@ export async function createEquipment(
 ): Promise<EquipmentRow> {
   const now = new Date().toISOString();
   const equipmentId =
-    equipmentData.id || `equipment-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    equipmentData.id ||
+    `equipment-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
   const { data, error } = await supabase
     .from("equipment")
@@ -99,9 +100,7 @@ export async function createEquipment(
       location: equipmentData.location ?? null,
       status: equipmentData.status ?? null,
       documentation_url: equipmentData.documentationUrl ?? null,
-      image_urls: equipmentData.imageUrls
-        ? (equipmentData.imageUrls as unknown)
-        : null,
+      image_urls: equipmentData.imageUrls ?? null,
       created_at: now,
       updated_at: now,
     })
@@ -176,8 +175,7 @@ export async function deleteEquipment(
 
   // Delete all associated images from storage
   if (equipmentData.image_urls) {
-    const imageUrls = equipmentData.image_urls as string[];
-    for (const imageUrl of imageUrls) {
+    for (const imageUrl of equipmentData.image_urls) {
       await deleteEquipmentImage(imageUrl);
     }
   }
@@ -195,4 +193,3 @@ export async function deleteEquipment(
 
   return equipmentData;
 }
-

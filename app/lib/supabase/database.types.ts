@@ -116,7 +116,7 @@ export interface Database {
           location: string | null;
           status: string | null;
           documentation_url: string | null;
-          image_urls: Json | null;
+          image_urls: string[] | null;
           created_at: string;
           updated_at: string;
         };
@@ -128,7 +128,7 @@ export interface Database {
           location?: string | null;
           status?: string | null;
           documentation_url?: string | null;
-          image_urls?: Json | null;
+          image_urls?: string[] | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -140,7 +140,7 @@ export interface Database {
           location?: string | null;
           status?: string | null;
           documentation_url?: string | null;
-          image_urls?: Json | null;
+          image_urls?: string[] | null;
           created_at?: string;
           updated_at?: string;
         };

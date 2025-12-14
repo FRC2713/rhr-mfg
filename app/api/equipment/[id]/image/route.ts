@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  getEquipmentById,
+  updateEquipment,
+} from "~/lib/equipmentApi/equipment";
+import {
   deleteEquipmentImage,
   uploadEquipmentImage,
 } from "~/lib/equipmentApi/images";
-import { getEquipmentById, updateEquipment } from "~/lib/equipmentApi/equipment";
 
 export async function POST(
   request: NextRequest,
@@ -16,10 +19,7 @@ export async function POST(
     const file = formData.get("file") as File | null;
 
     if (!file) {
-      return NextResponse.json(
-        { error: "No file provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
     // Validate file type
@@ -50,12 +50,12 @@ export async function POST(
     }
 
     // Add the new image URL to the array
-    const currentImageUrls = (equipment.image_urls as string[]) || [];
+    const currentImageUrls = equipment.image_urls || [];
     const updatedImageUrls = [...currentImageUrls, imageUrl];
 
     // Update the equipment with the new image URL
     await updateEquipment(id, {
-      image_urls: updatedImageUrls as unknown,
+      image_urls: updatedImageUrls,
     });
 
     return NextResponse.json({ imageUrl }, { status: 201 });
@@ -93,7 +93,7 @@ export async function DELETE(
     }
 
     // Remove the image URL from the array
-    const currentImageUrls = (equipment.image_urls as string[]) || [];
+    const currentImageUrls = equipment.image_urls || [];
     const updatedImageUrls = currentImageUrls.filter((url) => url !== imageUrl);
 
     // Delete the image from storage
@@ -101,7 +101,7 @@ export async function DELETE(
 
     // Update the equipment with the updated image URLs array
     await updateEquipment(id, {
-      image_urls: updatedImageUrls.length > 0 ? (updatedImageUrls as unknown) : null,
+      image_urls: updatedImageUrls.length > 0 ? updatedImageUrls : null,
     });
 
     return NextResponse.json({ success: true });
@@ -112,4 +112,3 @@ export async function DELETE(
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
-

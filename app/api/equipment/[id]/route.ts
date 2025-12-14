@@ -46,7 +46,7 @@ export async function PUT(
       location: string | null;
       status: string | null;
       documentation_url: string | null;
-      image_urls: unknown;
+      image_urls: string[] | null;
     }> = {};
 
     if (body.name !== undefined) {
@@ -68,7 +68,7 @@ export async function PUT(
       updates.documentation_url = body.documentationUrl || null;
     }
     if (body.imageUrls !== undefined) {
-      updates.image_urls = body.imageUrls as unknown;
+      updates.image_urls = (body.imageUrls as string[]) || null;
     }
 
     const updatedEquipment = await updateEquipment(id, updates);
@@ -104,4 +104,3 @@ export async function DELETE(
     return NextResponse.json({ error: errorMessage }, { status: statusCode });
   }
 }
-
