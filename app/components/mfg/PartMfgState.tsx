@@ -89,6 +89,15 @@ export function PartMfgState({
       formData.append("partId", part.partId || part.id || "");
     }
 
+    // Extract raw thumbnail URL (same strategy as PartCardThumbnail)
+    const rawThumbnailUrl =
+      part.thumbnailInfo?.sizes?.find((s) => s.size === "300x300")?.href ||
+      part.thumbnailInfo?.sizes?.[0]?.href ||
+      part.thumbnailInfo?.sizes?.find((s) => s.size === "600x340")?.href;
+    if (rawThumbnailUrl) {
+      formData.append("rawThumbnailUrl", rawThumbnailUrl);
+    }
+
     try {
       const response = await fetch("/api/mfg/parts/actions", {
         method: "POST",

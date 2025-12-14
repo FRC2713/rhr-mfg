@@ -125,17 +125,20 @@ export function KanbanCard({ card }: KanbanCardProps) {
     if (!card.imageUrl) return undefined;
 
     // If it's already our proxy endpoint, use as is
+    // This is the format we now store: /api/onshape/thumbnail?url=...
     if (card.imageUrl.startsWith("/api/onshape/thumbnail")) {
       return card.imageUrl;
     }
 
     // If it's a direct Onshape URL, wrap it in our proxy
     // We check for onshape.com domain to identify direct Onshape URLs
+    // This handles backward compatibility with old cards
     if (card.imageUrl.includes("onshape.com")) {
       return `/api/onshape/thumbnail?url=${encodeURIComponent(card.imageUrl)}`;
     }
 
-    // Otherwise assume it's a public URL (Supabase, etc) and use as is
+    // Otherwise assume it's a public URL and use as is
+    // (backward compatibility for any legacy URLs)
     return card.imageUrl;
   }, [card.imageUrl]);
 

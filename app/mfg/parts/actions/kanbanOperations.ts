@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createCard, updateCard } from "~/lib/kanbanApi/cards";
-import { uploadOnshapeThumbnailToSupabase } from "~/lib/kanbanApi/images";
 import { logger } from "~/lib/logger";
 import { onshapeApiRequest } from "~/lib/onshapeApi/auth";
 import { getValidOnshapeTokenFromRequest } from "~/lib/tokenRefresh";
@@ -28,6 +27,7 @@ const addCardSchema = z.object({
   instanceId: z.string().optional(),
   elementId: z.string().optional(),
   partId: z.string().optional(),
+  rawThumbnailUrl: z.string().optional(),
 });
 
 /**
@@ -130,6 +130,7 @@ export async function handleAddKanbanCard(
     "instanceId",
     "elementId",
     "partId",
+    "rawThumbnailUrl",
   ]);
 
   const parseResult = addCardSchema.safeParse(rawData);
@@ -143,31 +144,11 @@ export async function handleAddKanbanCard(
   const data = parseResult.data;
 
   try {
-    // Build image URL from Onshape thumbnail API if part metadata is provided
+    // Build image URL from raw thumbnail URL (same strategy as PartCardThumbnail)
     let imageUrl = "";
-    if (data.documentId && data.instanceId && data.elementId && data.partId) {
-      // Try to upload to Supabase first
-      const supabaseUrl = await uploadOnshapeThumbnailToSupabase(request, {
-        documentId: data.documentId,
-        instanceType: data.instanceType,
-        instanceId: data.instanceId,
-        elementId: data.elementId,
-        partId: data.partId,
-      });
-
-      if (supabaseUrl) {
-        imageUrl = supabaseUrl;
-      } else {
-        // Fallback to proxy URL if upload fails
-        const params = new URLSearchParams({
-          documentId: data.documentId,
-          instanceType: data.instanceType,
-          instanceId: data.instanceId,
-          elementId: data.elementId,
-          partId: data.partId,
-        });
-        imageUrl = `/api/onshape/thumbnail?${params.toString()}`;
-      }
+    if (data.rawThumbnailUrl) {
+      // Use proxy endpoint for authenticated thumbnail access
+      imageUrl = `/api/onshape/thumbnail?url=${encodeURIComponent(data.rawThumbnailUrl)}`;
     }
 
     // Get user information from Onshape

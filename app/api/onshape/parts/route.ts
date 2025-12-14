@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createOnshapeApiClient,
-  getPartsWmve,
-} from "~/lib/onshapeApi/generated-wrapper";
+import { fetchPartsFromOnshape } from "~/mfg/parts/utils/partsQuery";
 
 /**
  * API endpoint to fetch parts from Onshape with server-side authentication
@@ -16,7 +13,6 @@ export async function GET(request: NextRequest) {
   const instanceType = url.searchParams.get("instanceType");
   const instanceId = url.searchParams.get("instanceId");
   const elementId = url.searchParams.get("elementId");
-  const withThumbnails = url.searchParams.get("withThumbnails") === "true";
 
   if (!documentId || !instanceType || !instanceId || !elementId) {
     return NextResponse.json(
@@ -26,26 +22,17 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Create authenticated client
-    const client = await createOnshapeApiClient();
-
-    // Fetch parts data
-    const response = await getPartsWmve({
-      client,
-      path: {
-        did: documentId,
-        wvm: instanceType as "w" | "v" | "m",
-        wvmid: instanceId,
-        eid: elementId,
-      },
-      query: {
-        withThumbnails,
-        includePropertyDefaults: true,
-      },
+    // Use shared utility function to fetch parts
+    const parts = await fetchPartsFromOnshape({
+      documentId,
+      instanceType: instanceType as "w" | "v" | "m",
+      instanceId,
+      elementId,
+      elementType: "", // Not used in fetching
     });
 
     // Return parts data as JSON
-    return NextResponse.json(response.data || []);
+    return NextResponse.json(parts);
   } catch (error) {
     console.error("Error fetching parts from Onshape:", error);
     return NextResponse.json(

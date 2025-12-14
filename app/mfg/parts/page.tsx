@@ -5,11 +5,7 @@ import {
   dehydrate,
   HydrationBoundary,
 } from "@tanstack/react-query";
-import {
-  createOnshapeApiClient,
-  getPartsWmve,
-} from "~/lib/onshapeApi/generated-wrapper";
-import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
+import { getPartsQueryKey, fetchPartsFromOnshape } from "./utils/partsQuery";
 
 export const metadata: Metadata = {
   title: "MFG Parts - Onshape Integration",
@@ -45,36 +41,17 @@ export default async function MfgParts({
   // Prefetch parts data if we have the required parameters
   if (queryParams.documentId) {
     await queryClient.prefetchQuery({
-      queryKey: [
-        "onshape-parts",
-        queryParams.documentId,
-        queryParams.instanceType,
-        queryParams.instanceId,
-        queryParams.elementId,
-      ],
-      queryFn: async (): Promise<BtPartMetadataInfo[]> => {
+      queryKey: getPartsQueryKey(queryParams),
+      queryFn: async () => {
         try {
-          const client = await createOnshapeApiClient();
-          const response = await getPartsWmve({
-            client,
-            path: {
-              did: queryParams.documentId,
-              wvm: queryParams.instanceType,
-              wvmid: queryParams.instanceId,
-              eid: queryParams.elementId,
-            },
-            query: {
-              withThumbnails: true,
-              includePropertyDefaults: true,
-            },
-          });
-          return response.data || [];
+          return await fetchPartsFromOnshape(queryParams);
         } catch (error) {
           console.error("Error prefetching parts:", error);
           // Return empty array on error - client will handle retry
           return [];
         }
       },
+      staleTime: 30 * 1000, // Cache for 30 seconds
     });
   }
 

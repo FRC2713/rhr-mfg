@@ -23,6 +23,7 @@ import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import type { KanbanCard } from "~/api/kanban/cards/types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import { PartsPageSearchParams } from "./page";
+import { getPartsQueryOptions } from "./utils/partsQuery";
 
 interface MfgPartsClientProps {
   queryParams: PartsPageSearchParams;
@@ -67,34 +68,7 @@ export function MfgPartsClient({
     data: parts = [],
     isLoading: isLoadingParts,
     error: partsError,
-  } = useQuery<BtPartMetadataInfo[]>({
-    queryKey: [
-      "onshape-parts",
-      queryParams.documentId,
-      queryParams.instanceType,
-      queryParams.instanceId,
-      queryParams.elementId,
-    ],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        documentId: queryParams.documentId!,
-        instanceType: queryParams.instanceType,
-        instanceId: queryParams.instanceId,
-        elementId: queryParams.elementId,
-        withThumbnails: "true",
-      });
-      const response = await fetch(`/api/onshape/parts?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch parts");
-      }
-      return response.json();
-    },
-    enabled: !!queryParams?.documentId,
-    staleTime: 30 * 1000, // Cache for 30 seconds
-  });
-
-  console.log("queryParams", queryParams);
-  console.log("parts", parts);
+  } = useQuery<BtPartMetadataInfo[]>(getPartsQueryOptions(queryParams));
 
   // Configure Fuse.js for fuzzy search
   const fuse = useMemo(() => {
