@@ -1,91 +1,40 @@
 import type { Route } from "./+types/home";
+import { redirect } from "react-router";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { KanbanSquare, Settings2, Edit, Save, X } from "lucide-react";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
-import { Badge } from "~/components/ui/badge";
-import {
-  Sparkles,
-  CheckCircle2,
-  Box,
-  ArrowRight,
-  KanbanSquare,
-} from "lucide-react";
-import { Link, useSearchParams, redirect } from "react-router";
-import {
-  isOnshapeAuthenticated,
   getSession,
+  isOnshapeAuthenticated,
   commitSession,
 } from "~/lib/session";
 import { refreshOnshapeTokenIfNeededWithSession } from "~/lib/tokenRefresh";
+import { KanbanBoard, KanbanBoardSkeleton } from "~/components/mfg/KanbanBoard";
+import { Button } from "~/components/ui/button";
+import type { KanbanConfig } from "./api.kanban.config";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Onshape Manufacturing Integration" },
+    { title: "Kanban Board - Manufacturing" },
     {
       name: "description",
-      content:
-        "View and manage Onshape CAD parts. Track manufacturing states and streamline your workflow.",
+      content: "Manage your manufacturing workflow with the Kanban board",
     },
   ];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const url = new URL(request.url);
-  const hasError = url.searchParams.has("error");
-
-  // Check Onshape authentication first (required)
-  const onshapeAuthenticated = await isOnshapeAuthenticated(request);
-
-  // Get session once
   const session = await getSession(request);
 
-  // If there's an error in the URL, don't redirect - let the page render with the error
-  // This prevents redirect loops when OAuth callbacks fail
-  if (hasError) {
-    session.unset("onshapeAuthRedirectCount"); // Clear redirect counter
-    return {
-      onshapeAuthenticated: false,
-      error: url.searchParams.get("error") || undefined,
-      headers: {
-        "Set-Cookie": await commitSession(session),
-      },
-    };
-  }
+  // Check Onshape authentication
+  const onshapeAuthenticated = await isOnshapeAuthenticated(request);
 
-  // If not authenticated with Onshape, redirect to Onshape auth
-  // Use a redirect counter to prevent infinite loops
   if (!onshapeAuthenticated) {
-    const redirectCount = session.get("onshapeAuthRedirectCount") || 0;
-
-    if (redirectCount < 2) {
-      // Allow up to 2 redirects to handle OAuth flow
-      session.set("onshapeAuthRedirectCount", redirectCount + 1);
-      return redirect("/auth/onshape", {
-        headers: {
-          "Set-Cookie": await commitSession(session),
-        },
-      });
-    } else {
-      // Too many redirects - clear counter and show error
-      session.unset("onshapeAuthRedirectCount");
-      return {
-        onshapeAuthenticated: false,
-        error:
-          "Unable to authenticate with Onshape. Please refresh the page or try opening in a new window.",
-        headers: {
-          "Set-Cookie": await commitSession(session),
-        },
-      };
-    }
+    const url = new URL(request.url);
+    const fullPath = url.pathname + url.search;
+    return redirect(`/signin?redirect=${encodeURIComponent(fullPath)}`);
   }
-
-  // Clear redirect counter if authenticated
-  session.unset("onshapeAuthRedirectCount");
 
   // Refresh tokens if needed (this updates the session)
   try {
@@ -99,146 +48,192 @@ export async function loader({ request }: Route.LoaderArgs) {
   const cookie = await commitSession(session);
 
   return {
-    onshapeAuthenticated: true,
     headers: {
       "Set-Cookie": cookie,
     },
   };
 }
 
-export default function Home({ loaderData }: Route.ComponentProps) {
-  const { onshapeAuthenticated, error: loaderError } = loaderData;
-  const [searchParams] = useSearchParams();
-  const urlError = searchParams.get("error");
-  const error = loaderError || urlError;
+export default function Home() {
+  const queryClient = useQueryClient();
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [originalConfig, setOriginalConfig] = useState<KanbanConfig | null>(
+    null
+  );
+
+  // Fetch Kanban config
+  const { data: config, isLoading } = useQuery<KanbanConfig>({
+    queryKey: ["kanban-config"],
+    queryFn: async () => {
+      const response = await fetch("/api/kanban/config");
+      if (!response.ok) {
+        throw new Error("Failed to fetch Kanban config");
+      }
+      return response.json();
+    },
+    staleTime: 60 * 1000, // Cache for 1 minute
+  });
+
+  // Save config mutation
+  const saveConfigMutation = useMutation({
+    mutationFn: async (newConfig: KanbanConfig) => {
+      const response = await fetch("/api/kanban/config", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newConfig),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save configuration");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Update the cache with the new config
+      queryClient.setQueryData(["kanban-config"], data.config);
+      toast.success("Configuration saved");
+    },
+    onError: (error) => {
+      toast.error("Failed to save configuration", {
+        description:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      });
+    },
+  });
+
+  const handleConfigChange = (newConfig: KanbanConfig) => {
+    // Only update local state when in edit mode
+    // Actual save happens when user clicks Save button
+    if (isEditMode) {
+      queryClient.setQueryData(["kanban-config"], newConfig);
+    }
+  };
+
+  const handleEnterEditMode = () => {
+    if (config) {
+      // Store original config for cancel functionality
+      setOriginalConfig(JSON.parse(JSON.stringify(config)));
+      setIsEditMode(true);
+    }
+  };
+
+  const handleSave = () => {
+    if (config) {
+      // Save to server
+      saveConfigMutation.mutate(config, {
+        onSuccess: () => {
+          setIsEditMode(false);
+          setOriginalConfig(null);
+        },
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    if (originalConfig) {
+      // Revert to original config
+      queryClient.setQueryData(["kanban-config"], originalConfig);
+      setIsEditMode(false);
+      setOriginalConfig(null);
+    }
+  };
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-4xl space-y-8">
-        {/* Header Section */}
-        <div className="space-y-4 text-center">
-          <div className="flex items-center justify-center gap-2">
-            <Sparkles className="text-primary h-8 w-8" />
-            <h1 className="text-4xl font-bold tracking-tight">
-              Onshape Manufacturing Integration
-            </h1>
-          </div>
-          <p className="text-muted-foreground text-xl">
-            View and manage Onshape CAD parts. Track manufacturing states and
-            streamline your workflow.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {onshapeAuthenticated && (
-              <Badge variant="default" className="gap-1">
-                <CheckCircle2 className="h-3 w-3" />
-                Onshape Connected
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <Card className="border-destructive">
-            <CardContent className="pt-6">
-              <p className="text-destructive text-sm">
-                Authentication error: {decodeURIComponent(error)}
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Authentication Status Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Authentication Status</CardTitle>
-            <CardDescription>Manage connection to Onshape</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Onshape</span>
-                  {onshapeAuthenticated ? (
-                    <Badge variant="default" className="gap-1">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Connected
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary">Not Connected</Badge>
-                  )}
-                </div>
+    <main className="bg-background flex h-full flex-1 flex-col overflow-hidden">
+      {/* Page Header */}
+      <header className="from-card via-card to-muted/50 relative border-b bg-linear-to-r">
+        <div className="relative px-6 py-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-4">
+              {/* Icon */}
+              <div className="bg-primary/10 ring-primary/20 flex size-12 items-center justify-center rounded-xl ring-1">
+                <KanbanSquare className="text-primary size-6" />
               </div>
-              {onshapeAuthenticated && (
-                <p className="text-muted-foreground text-xs">
-                  Successfully authenticated with Onshape. You can access
-                  Onshape document data.
+
+              {/* Title & Description */}
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">
+                  Kanban Board
+                </h1>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Organize your manufacturing workflow with drag-and-drop
+                  columns and cards
                 </p>
+              </div>
+            </div>
+
+            {/* Edit Mode Controls */}
+            <div className="flex items-center gap-2">
+              {!isEditMode ? (
+                <Button
+                  onClick={handleEnterEditMode}
+                  variant="outline"
+                  size="sm"
+                  disabled={!config}
+                >
+                  <Edit className="mr-2 size-4" />
+                  Edit Columns
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleCancel}
+                    variant="outline"
+                    size="sm"
+                    disabled={saveConfigMutation.isPending}
+                  >
+                    <X className="mr-2 size-4" />
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSave}
+                    size="sm"
+                    disabled={saveConfigMutation.isPending}
+                  >
+                    <Save className="mr-2 size-4" />
+                    Save
+                  </Button>
+                </>
+              )}
+              {/* Status indicator */}
+              {saveConfigMutation.isPending && (
+                <div className="bg-muted/80 text-muted-foreground flex items-center gap-2 rounded-full px-3 py-1.5 text-xs">
+                  <Settings2 className="size-3 animate-spin" />
+                  <span>Saving...</span>
+                </div>
               )}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Feature Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <Box className="text-primary mb-2 h-6 w-6" />
-              <CardTitle>Parts</CardTitle>
-              <CardDescription>
-                View and manage Onshape parts from Part Studios. Update part
-                numbers and track manufacturing states.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full" variant="default">
-                <Link to="/mfg/parts">
-                  View Parts
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <KanbanSquare className="text-primary mb-2 h-6 w-6" />
-              <CardTitle>Manufacturing</CardTitle>
-              <CardDescription>
-                Manage manufacturing workflow with the Kanban board. Track parts
-                through different manufacturing states.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full" variant="default">
-                <Link to="/mfg/kanban">
-                  View Kanban
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+          </div>
         </div>
 
-        {/* Quick Links */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Resources</CardTitle>
-            <CardDescription>Documentation and API references</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              <a
-                href="https://cad.onshape.com/help"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:bg-accent hover:text-accent-foreground inline-flex h-8 items-center justify-center gap-2 rounded-md px-3 text-sm text-xs font-medium whitespace-nowrap transition-colors"
-              >
-                Onshape Help
-              </a>
+        {/* Decorative gradient line */}
+        <div className="via-primary/20 absolute right-0 bottom-0 left-0 h-px bg-linear-to-r from-transparent to-transparent" />
+      </header>
+
+      {/* Board Content */}
+      <div className="flex-1 overflow-hidden">
+        {isLoading ? (
+          <KanbanBoardSkeleton />
+        ) : config ? (
+          <KanbanBoard
+            config={config}
+            onConfigChange={handleConfigChange}
+            isEditMode={isEditMode}
+            originalConfig={originalConfig}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <div className="text-center">
+              <p className="text-muted-foreground">
+                Failed to load configuration
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        )}
       </div>
     </main>
   );
