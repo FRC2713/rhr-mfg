@@ -1,4 +1,3 @@
-import { validateQueryParams } from "./loaders/queryValidation";
 import { MfgPartsClient } from "./parts-client";
 import type { Metadata } from "next";
 

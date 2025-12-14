@@ -15,13 +15,13 @@ import {
 import { cn } from "~/lib/utils";
 import type { KanbanCard } from "~/api/kanban/cards/types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
-import type { PartsQueryParams } from "~/mfg/parts/utils/types";
+import type { PartsPageSearchParams } from "~/mfg/parts/page";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 
 interface PartDueDateProps {
   card: KanbanCard;
   part: BtPartMetadataInfo;
-  queryParams: PartsQueryParams;
+  queryParams: PartsPageSearchParams;
   columns: KanbanColumn[];
 }
 

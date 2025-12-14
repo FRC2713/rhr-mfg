@@ -9,7 +9,7 @@ import { Badge } from "~/components/ui/badge";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import type { KanbanCard } from "~/api/kanban/cards/types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
-import type { PartsQueryParams } from "~/mfg/parts/utils/types";
+import type { PartsPageSearchParams } from "~/mfg/parts/page";
 import { PartCardThumbnail } from "./PartCardThumbnail";
 import { PartNumberInput } from "./PartNumberInput";
 import { PartMfgState } from "./PartMfgState";
@@ -17,7 +17,7 @@ import { ManufacturingStateBadge } from "./ManufacturingStateBadge";
 
 interface PartCardProps {
   part: BtPartMetadataInfo;
-  queryParams: PartsQueryParams;
+  queryParams: PartsPageSearchParams;
   cards: KanbanCard[];
   columns: KanbanColumn[];
 }

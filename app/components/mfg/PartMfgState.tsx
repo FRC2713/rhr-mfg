@@ -16,11 +16,11 @@ import type { KanbanCard } from "~/api/kanban/cards/types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import { PartDueDate } from "./PartDueDate";
 
-import type { PartsQueryParams } from "~/mfg/parts/utils/types";
+import type { PartsPageSearchParams } from "~/mfg/parts/page";
 
 interface PartMfgStateProps {
   part: BtPartMetadataInfo;
-  queryParams: PartsQueryParams;
+  queryParams: PartsPageSearchParams;
   cards: KanbanCard[];
   columns: KanbanColumn[];
 }
@@ -53,7 +53,7 @@ export function PartMfgState({
   useEffect(() => {
     if (result?.success && !isSubmitting && !hasRevalidatedRef.current) {
       hasRevalidatedRef.current = true;
-      
+
       // Invalidate both cards and columns queries to refresh the UI
       queryClient.invalidateQueries({ queryKey: ["kanban-cards"] });
       queryClient.invalidateQueries({ queryKey: ["kanban-columns"] });
@@ -69,7 +69,7 @@ export function PartMfgState({
   const matchingCard = cards.find((card) => card.title === part.partNumber);
 
   // Find current column if card exists
-  const currentColumn = matchingCard 
+  const currentColumn = matchingCard
     ? columns.find((col) => col.id === matchingCard.columnId)
     : null;
 
@@ -134,7 +134,7 @@ export function PartMfgState({
     formData.append("action", "moveCard");
     formData.append("cardId", matchingCard.id);
     formData.append("columnId", newColumnId);
-    
+
     try {
       const response = await fetch("/api/mfg/parts/actions", {
         method: "POST",
