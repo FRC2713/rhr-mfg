@@ -16,7 +16,7 @@ import type { KanbanCard } from "~/api/kanban/cards/types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import { PartDueDate } from "./PartDueDate";
 
-import type { PartsPageSearchParams } from "~/mfg/parts/page";
+import type { PartsPageSearchParams } from "~/(main)/mfg/parts/page";
 
 interface PartMfgStateProps {
   part: BtPartMetadataInfo;

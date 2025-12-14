@@ -177,7 +177,6 @@ export function HomeClient() {
             config={config}
             onConfigChange={handleConfigChange}
             isEditMode={isEditMode}
-            originalConfig={originalConfig}
           />
         ) : (
           <div className="flex h-full items-center justify-center">

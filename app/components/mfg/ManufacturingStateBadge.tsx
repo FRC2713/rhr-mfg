@@ -1,6 +1,6 @@
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import { Badge } from "~/components/ui/badge";
-import { getColumnColorClasses } from "~/mfg/parts/utils/columnColors";
+import { getColumnColorClasses } from "~/(main)/mfg/parts/utils/columnColors";
 
 /**
  * Reusable component for displaying a manufacturing state badge
