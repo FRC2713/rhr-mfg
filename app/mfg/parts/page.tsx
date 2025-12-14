@@ -5,7 +5,8 @@ import {
   dehydrate,
   HydrationBoundary,
 } from "@tanstack/react-query";
-import { getPartsQueryKey, fetchPartsFromOnshape } from "./utils/partsQuery";
+import { getPartsQueryKey } from "./utils/partsQuery";
+import { fetchPartsFromOnshape } from "./utils/partsQuery.server";
 
 export const metadata: Metadata = {
   title: "MFG Parts - Onshape Integration",
