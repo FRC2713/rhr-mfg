@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { isOnshapeAuthenticated } from "~/lib/session";
+import { isOnshapeAuthenticated } from "~/lib/onshapeAuth";
 import { refreshOnshapeTokenIfNeeded } from "~/lib/tokenRefresh";
 import { HomeClient } from "./home-client";
 import type { Metadata } from "next";

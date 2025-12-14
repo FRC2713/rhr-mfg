@@ -1,9 +1,5 @@
 import { redirect } from "next/navigation";
-import {
-  isOnshapeAuthenticated,
-  getSession,
-  commitSession,
-} from "~/lib/session";
+import { isOnshapeAuthenticated } from "~/lib/onshapeAuth";
 import { MfgKanbanClient } from "./kanban-client";
 import type { Metadata } from "next";
 
@@ -19,8 +15,6 @@ export default async function MfgKanban() {
   if (!onshapeAuthenticated) {
     return redirect("/signin?redirect=/mfg/kanban");
   }
-
-  await commitSession(await getSession());
 
   return <MfgKanbanClient />;
 }

@@ -1,4 +1,4 @@
-import type { KanbanCard } from "~/app/api/kanban/cards/types";
+import type { KanbanCard } from "~/api/kanban/cards/types";
 import { supabase } from "~/lib/supabase/client";
 import type {
   KanbanCardRow,

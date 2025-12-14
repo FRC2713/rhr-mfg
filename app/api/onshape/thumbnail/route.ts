@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  commitSession,
-  getSession,
-  refreshOnshapeTokenIfNeeded,
-} from "~/lib/session";
+import { refreshOnshapeTokenIfNeeded } from "~/lib/tokenRefresh";
 
 /**
  * Build Onshape thumbnail URL from individual parameters
@@ -66,10 +62,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get session first so we can commit it if token is refreshed
-    const session = await getSession();
-
-    // Get valid Onshape token (may refresh and update session)
+    // Get valid Onshape token (may refresh and update cookies)
     const accessToken = await refreshOnshapeTokenIfNeeded();
     if (!accessToken) {
       console.error("[THUMBNAIL] No access token found.");
@@ -98,11 +91,6 @@ export async function GET(request: NextRequest) {
     // Get the image data
     const imageData = await response.arrayBuffer();
     const contentType = response.headers.get("Content-Type") || "image/png";
-
-    // Commit session if it was updated (e.g., during token refresh)
-    if (session.isDirtyFlag) {
-      await commitSession(session);
-    }
 
     // Return the image with appropriate headers
     return new NextResponse(imageData, {

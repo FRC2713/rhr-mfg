@@ -3,8 +3,9 @@ import { deleteCard, getCards, updateCard } from "~/lib/kanbanApi/cards";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const result = await getCards();
 
@@ -13,7 +14,7 @@ export async function GET(
       return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
-    const card = result.cards.find((c) => c.id === params.id);
+    const card = result.cards.find((c) => c.id === id);
 
     if (!card) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
@@ -28,11 +29,12 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const updates = await request.json();
-    const updatedCard = await updateCard(params.id, updates);
+    const updatedCard = await updateCard(id, updates);
     return NextResponse.json({ card: updatedCard });
   } catch (error) {
     console.error("[KANBAN CARD] Error in action:", error);
@@ -46,10 +48,11 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const deletedCard = await deleteCard(params.id);
+    const deletedCard = await deleteCard(id);
     return NextResponse.json({ card: deletedCard });
   } catch (error) {
     console.error("[KANBAN CARD] Error in action:", error);

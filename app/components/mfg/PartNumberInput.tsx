@@ -6,7 +6,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { PartsQueryParams } from "~/app/mfg/parts/utils/types";
+import type { PartsQueryParams } from "~/mfg/parts/utils/types";
 
 interface PartNumberInputProps {
   part: BtPartMetadataInfo;

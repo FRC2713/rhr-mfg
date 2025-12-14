@@ -1,6 +1,6 @@
 // Re-export Kanban types for convenience
-export type { KanbanCard } from "~/app/api/kanban/cards/route";
-export type { KanbanColumn } from "~/app/api/kanban/config/route";
+
+export type { KanbanColumn } from "~/api/kanban/config/route";
 
 /**
  * Query parameters for the parts route

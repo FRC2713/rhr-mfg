@@ -1,19 +1,16 @@
-import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { getAuthorizationUrl } from "~/lib/onshapeApi/auth";
-import { commitSession, getSession } from "~/lib/session";
+import { getOnshapeToken, setOAuthState } from "~/lib/onshapeAuth";
 
 export async function GET(request: Request) {
-  const session = await getSession();
   const url = new URL(request.url);
   const redirectTo = url.searchParams.get("redirect") || "/";
 
   // Check if already authenticated
-  if (session.get("onshapeAccessToken")) {
-    const cookie = await commitSession(session);
-    const response = redirect(redirectTo);
-    response.headers.set("Set-Cookie", cookie);
-    return response;
+  const accessToken = await getOnshapeToken();
+  if (accessToken) {
+    return NextResponse.redirect(new URL(redirectTo, url.origin));
   }
 
   const clientId = process.env.ONSHAPE_CLIENT_ID;
@@ -27,14 +24,11 @@ export async function GET(request: Request) {
 
   // Generate state for CSRF protection
   const state = randomBytes(32).toString("hex");
-  session.set("onshapeOauthState", state);
+  await setOAuthState(state);
 
   // Generate authorization URL
   const authUrl = getAuthorizationUrl(redirectUri, clientId, state);
 
-  // Commit session and redirect
-  const cookie = await commitSession(session);
-  const response = redirect(authUrl);
-  response.headers.set("Set-Cookie", cookie);
-  return response;
+  // Redirect to authorization URL
+  return NextResponse.redirect(authUrl);
 }

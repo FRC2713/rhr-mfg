@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import { Providers } from "./providers";
 import { Toaster } from "~/components/ui/sonner";
-import { ThemeProvider } from "./lib/useTheme";
-import { themeScript } from "./lib/theme";
 import "./app.css";
 
 const inter = Inter({
@@ -23,11 +22,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
       <body className={inter.variable}>
-        <ThemeProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           <Providers>
             {children}
             <Toaster />

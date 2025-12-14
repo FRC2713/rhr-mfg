@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { KanbanSquare, Settings2, Edit, Save, X } from "lucide-react";
 import { KanbanBoard, KanbanBoardSkeleton } from "~/components/mfg/KanbanBoard";
 import { Button } from "~/components/ui/button";
-import type { KanbanConfig } from "~/app/api/kanban/config/route";
+import type { KanbanConfig } from "~/api/kanban/config/route";
 
 export function HomeClient() {
   const queryClient = useQueryClient();

@@ -4,7 +4,7 @@ import {
   getWmvepMetadata,
   updateWvepMetadata,
 } from "~/lib/onshapeApi/generated-wrapper";
-import { isOnshapeAuthenticatedFromRequest } from "~/lib/session";
+import { isOnshapeAuthenticatedFromRequest } from "~/lib/onshapeAuth";
 import { createErrorResponse } from "../utils/errorHandling";
 import type { ActionResponse } from "../utils/types";
 
@@ -116,12 +116,6 @@ export async function handlePartNumberUpdate(
         editable: prop.editable,
       }))
     );
-
-    // Log initial metadata microversion
-    console.log("[ACTION] Initial metadata microversion:", {
-      metadataMicroversion: metadata.metadataMicroversion,
-      microversionId: metadata.microversionId,
-    });
 
     // Find the "Part number" property (try multiple possible names)
     const partNumberProperty = metadata.properties.find((prop: any) => {
@@ -272,38 +266,6 @@ export async function handlePartNumberUpdate(
         const updatedPartNumberProperty = verificationMetadata.properties.find(
           (prop: any) => prop.propertyId === partNumberProperty.propertyId
         );
-
-        console.log("[ACTION] Verification - Updated part number property:", {
-          found: !!updatedPartNumberProperty,
-          propertyId: updatedPartNumberProperty?.propertyId,
-          name: updatedPartNumberProperty?.name,
-          value: updatedPartNumberProperty?.value,
-          expectedValue: partNumber.trim(),
-          matches: updatedPartNumberProperty?.value === partNumber.trim(),
-        });
-
-        // Log metadata microversion comparison
-        console.log("[ACTION] Metadata microversion comparison:", {
-          beforeUpdate: metadata.metadataMicroversion,
-          afterUpdate: verificationMetadata.metadataMicroversion,
-          changed:
-            metadata.metadataMicroversion !==
-            verificationMetadata.metadataMicroversion,
-        });
-
-        if (updatedPartNumberProperty?.value !== partNumber.trim()) {
-          console.warn(
-            "[ACTION] WARNING: Part number update verification failed - metadata API shows different value:",
-            {
-              expected: partNumber.trim(),
-              actual: updatedPartNumberProperty?.value,
-            }
-          );
-        } else {
-          console.log(
-            "[ACTION] SUCCESS: Part number update verified via metadata API"
-          );
-        }
       } else {
         console.warn(
           "[ACTION] Could not verify update - verification metadata response missing properties"

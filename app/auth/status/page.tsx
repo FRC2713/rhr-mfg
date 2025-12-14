@@ -1,4 +1,4 @@
-import { isOnshapeAuthenticated } from "~/lib/session";
+import { isOnshapeAuthenticated } from "~/lib/onshapeAuth";
 
 export default async function AuthStatus() {
   const onshape = await isOnshapeAuthenticated();

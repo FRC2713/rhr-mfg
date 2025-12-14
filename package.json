@@ -41,6 +41,7 @@
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.87.1",
+    "@tailwindcss/postcss": "^4.1.13",
     "@tailwindcss/vite": "^4.1.13",
     "@types/node": "^22",
     "@types/react": "^19.1.13",

@@ -20,8 +20,8 @@ import { PartCardSkeleton } from "~/components/mfg/PartCardSkeleton";
 import { PartCard } from "~/components/mfg/PartCard";
 import { ErrorDisplay } from "~/components/mfg/ErrorDisplay";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { KanbanCard } from "~/app/api/kanban/cards/types";
-import type { KanbanColumn } from "~/app/api/kanban/config/route";
+import type { KanbanCard } from "~/api/kanban/cards/types";
+import type { KanbanColumn } from "~/api/kanban/config/route";
 import type { PartsQueryParams } from "./utils/types";
 
 interface MfgPartsClientProps {

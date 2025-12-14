@@ -1,4 +1,4 @@
-import { isOnshapeAuthenticated } from "~/lib/session";
+import { isOnshapeAuthenticated } from "~/lib/onshapeAuth";
 import { MainLayoutClient } from "./layout-client";
 
 export default async function MainLayout({

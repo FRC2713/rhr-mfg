@@ -1,12 +1,11 @@
-import { redirect } from "next/navigation";
-import { destroySession, getSession } from "~/lib/session";
+import { NextResponse } from "next/server";
+import { clearOAuthState, clearOnshapeTokens } from "~/lib/onshapeAuth";
 
-export async function GET() {
-  const session = await getSession();
+export async function GET(request: Request) {
+  // Clear all Onshape auth cookies
+  await clearOnshapeTokens();
+  await clearOAuthState();
 
-  // Destroy session and redirect to home
-  const cookie = await destroySession(session);
-  const response = redirect("/");
-  response.headers.set("Set-Cookie", cookie);
-  return response;
+  const url = new URL(request.url);
+  return NextResponse.redirect(new URL("/", url.origin));
 }

@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 import { exchangeCodeForToken } from "~/lib/onshapeApi/auth";
-import { commitSession, destroySession, getSession } from "~/lib/session";
+import {
+  clearOAuthState,
+  clearOnshapeTokens,
+  getOAuthState,
+  setOnshapeTokens,
+} from "~/lib/onshapeAuth";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -19,23 +25,21 @@ export async function GET(request: Request) {
     );
   }
 
-  const session = await getSession();
-  const storedState = session.get("onshapeOauthState") as string | undefined;
+  const storedState = await getOAuthState();
 
   // Verify state to prevent CSRF attacks
   if (!state || state !== storedState) {
     console.error("State validation failed:", {
       receivedState: state,
       storedState: storedState,
-      hasSession: !!session,
-      sessionKeys: Object.keys(session.toJSON()),
     });
 
-    // If state doesn't match but we have a code, it might be a session issue
+    // If state doesn't match but we have a code, it might be a cookie issue
     // Don't redirect to error immediately - try to clear and restart auth
     if (code && !storedState) {
-      // Session was lost - clear everything and redirect to auth start
-      await destroySession(session);
+      // Cookie was lost - clear everything and redirect to auth start
+      await clearOnshapeTokens();
+      await clearOAuthState();
       return redirect("/auth/onshape");
     }
 
@@ -62,28 +66,25 @@ export async function GET(request: Request) {
       clientSecret
     );
 
-    // Store tokens in session
-    session.set("onshapeAccessToken", tokenResponse.access_token);
-    session.set("onshapeRefreshToken", tokenResponse.refresh_token);
-    session.set(
-      "onshapeExpiresAt",
-      Date.now() + tokenResponse.expires_in * 1000
+    // Store tokens in cookies
+    const expiresAt = Date.now() + tokenResponse.expires_in * 1000;
+    await setOnshapeTokens(
+      tokenResponse.access_token,
+      tokenResponse.refresh_token,
+      expiresAt
     );
-    session.unset("onshapeOauthState"); // Remove state after successful exchange
-    session.unset("onshapeAuthRedirectCount"); // Clear redirect counter on success
+
+    // Clear OAuth state after successful exchange
+    await clearOAuthState();
 
     // Always redirect back to signin page to check if other service needs auth
-    // Keep signInRedirect in session - signin page will use it once both services are authenticated
     const redirectTo = "/signin";
 
-    // Commit session and redirect
-    const cookie = await commitSession(session);
-    const response = redirect(redirectTo);
-    response.headers.set("Set-Cookie", cookie);
-    return response;
+    return NextResponse.redirect(new URL(redirectTo, url.origin));
   } catch (error) {
     console.error("Token exchange error:", error);
-    await destroySession(session);
+    await clearOnshapeTokens();
+    await clearOAuthState();
     return redirect(
       "/?error=" + encodeURIComponent("Failed to exchange authorization code")
     );

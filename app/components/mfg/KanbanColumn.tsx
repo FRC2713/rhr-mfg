@@ -25,8 +25,8 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { KanbanColumnHeader } from "./KanbanColumnHeader";
 import { KanbanCard } from "./KanbanCard";
-import type { KanbanColumn as KanbanColumnType } from "~/app/api/kanban/config/route";
-import type { KanbanCard as KanbanCardType } from "~/app/api/kanban/cards/types";
+import type { KanbanColumn as KanbanColumnType } from "~/api/kanban/config/route";
+import type { KanbanCard as KanbanCardType } from "~/api/kanban/cards/types";
 
 interface KanbanColumnProps {
   column: KanbanColumnType;

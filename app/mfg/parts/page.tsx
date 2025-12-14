@@ -1,9 +1,5 @@
 import { redirect } from "next/navigation";
-import {
-  isOnshapeAuthenticated,
-  getSession,
-  commitSession,
-} from "~/lib/session";
+import { isOnshapeAuthenticated } from "~/lib/onshapeAuth";
 import { validateQueryParams } from "./loaders/queryValidation";
 import { MfgPartsClient } from "./parts-client";
 import type { Metadata } from "next";
@@ -58,13 +54,11 @@ export default async function MfgParts({
             elementType: null,
           }
         }
-        error={validation.error}
+        error={validation.error || null}
         exampleUrl={validation.exampleUrl}
       />
     );
   }
-
-  await commitSession(await getSession());
 
   return (
     <MfgPartsClient

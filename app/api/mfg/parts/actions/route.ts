@@ -3,10 +3,10 @@ import {
   handleAddKanbanCard,
   handleMoveKanbanCard,
   handleUpdateKanbanDueDate,
-} from "~/app/mfg/parts/actions/kanbanOperations";
-import { handlePartNumberUpdate } from "~/app/mfg/parts/actions/partNumberUpdate";
-import { createErrorResponse } from "~/app/mfg/parts/utils/errorHandling";
-import type { ActionResponse } from "~/app/mfg/parts/utils/types";
+} from "~/mfg/parts/actions/kanbanOperations";
+import { handlePartNumberUpdate } from "~/mfg/parts/actions/partNumberUpdate";
+import { createErrorResponse } from "~/mfg/parts/utils/errorHandling";
+import type { ActionResponse } from "~/mfg/parts/utils/types";
 
 /**
  * Main action handler that routes to specific action handlers
