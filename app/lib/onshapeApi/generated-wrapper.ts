@@ -3,19 +3,51 @@
  * This integrates the generated client with our existing authentication system
  */
 
-import { getValidOnshapeToken } from "../tokenRefresh";
+import {
+  getValidOnshapeToken,
+  getValidOnshapeTokenFromRequest,
+} from "../tokenRefresh";
 import { client as generatedClient } from "./generated/client.gen";
 import type { Client, Config } from "./generated/client/types.gen";
 import type { Auth } from "./generated/core/auth.gen";
 
 /**
- * Create a configured Onshape API client for use in server-side code
+ * Create a configured Onshape API client for use in server-side code (Next.js)
  * This automatically handles token refresh and authentication
  */
-export async function createOnshapeApiClient(
+export async function createOnshapeApiClient(): Promise<Client> {
+  const accessToken = await getValidOnshapeToken();
+
+  if (!accessToken) {
+    throw new Error("Not authenticated with Onshape");
+  }
+
+  // Configure the client with bearer token authentication
+  // The auth callback will be called for each security requirement
+  const config: Config = {
+    auth: async (auth: Auth) => {
+      // For bearer token auth, return the token (will be prefixed with "Bearer " by the client)
+      if (auth.scheme === "bearer" && auth.type === "http") {
+        return accessToken;
+      }
+      // For basic auth, you could return credentials here if needed
+      // For now, we'll let bearer auth handle it
+      return undefined;
+    },
+  };
+
+  generatedClient.setConfig(config);
+  return generatedClient;
+}
+
+/**
+ * Create a configured Onshape API client from a request (for compatibility)
+ * This automatically handles token refresh and authentication
+ */
+export async function createOnshapeApiClientFromRequest(
   request: Request
 ): Promise<Client> {
-  const accessToken = await getValidOnshapeToken(request);
+  const accessToken = await getValidOnshapeTokenFromRequest(request);
 
   if (!accessToken) {
     throw new Error("Not authenticated with Onshape");

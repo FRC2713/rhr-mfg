@@ -26,8 +26,8 @@ import { KanbanCard as KanbanCardComponent } from "./KanbanCard";
 import type {
   KanbanConfig,
   KanbanColumn as KanbanColumnType,
-} from "~/routes/api.kanban.config";
-import type { KanbanCard } from "~/routes/api.kanban.cards/types";
+} from "~/app/api/kanban/config/route";
+import type { KanbanCard } from "~/app/api/kanban/cards/types";
 
 interface KanbanBoardProps {
   config: KanbanConfig;

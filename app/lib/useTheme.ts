@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from 'react';
 import { applyTheme, getPreferredTheme, type Theme } from './theme';
 
@@ -43,5 +45,13 @@ export function useTheme() {
   }, [theme]);
 
   return { theme, setTheme };
+}
+
+/**
+ * Theme Provider component for Next.js
+ */
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  useTheme();
+  return <>{children}</>;
 }
 

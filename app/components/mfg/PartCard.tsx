@@ -1,9 +1,15 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { KanbanCard } from "~/routes/api.kanban.cards/types";
-import type { KanbanColumn } from "~/routes/api.kanban.config";
-import type { PartsQueryParams } from "~/routes/mfg.parts/utils/types";
+import type { KanbanCard } from "~/app/api/kanban/cards/types";
+import type { KanbanColumn } from "~/app/api/kanban/config/route";
+import type { PartsQueryParams } from "~/app/mfg/parts/utils/types";
 import { PartCardThumbnail } from "./PartCardThumbnail";
 import { PartNumberInput } from "./PartNumberInput";
 import { PartMfgState } from "./PartMfgState";
@@ -21,30 +27,28 @@ interface PartCardProps {
  */
 export function PartCard({ part, queryParams, cards, columns }: PartCardProps) {
   // Find matching card for this part (if it has a part number)
-  const matchingCard = part.partNumber 
-    ? cards.find(card => card.title === part.partNumber)
+  const matchingCard = part.partNumber
+    ? cards.find((card) => card.title === part.partNumber)
     : null;
 
   // Find current column if card exists
-  const currentColumn = matchingCard 
-    ? columns.find(col => col.id === matchingCard.columnId)
+  const currentColumn = matchingCard
+    ? columns.find((col) => col.id === matchingCard.columnId)
     : null;
 
   return (
-    <Card className="hover:shadow-lg transition-shadow">
+    <Card className="transition-shadow hover:shadow-lg">
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-row items-center gap-2 flex-wrap">
+          <div className="flex flex-row flex-wrap items-center gap-2">
             <CardTitle className="text-lg">
-              {part.name || `Part ${part.partId || part.id || 'Unknown'}`}
+              {part.name || `Part ${part.partId || part.id || "Unknown"}`}
             </CardTitle>
             {currentColumn && (
               <ManufacturingStateBadge column={currentColumn} />
             )}
           </div>
-          {part.isHidden && (
-            <Badge variant="secondary">Hidden</Badge>
-          )}
+          {part.isHidden && <Badge variant="secondary">Hidden</Badge>}
         </div>
         <CardDescription>
           <PartNumberInput part={part} queryParams={queryParams} />
@@ -52,9 +56,13 @@ export function PartCard({ part, queryParams, cards, columns }: PartCardProps) {
       </CardHeader>
       <PartCardThumbnail part={part} />
       <CardContent className="space-y-4">
-        <PartMfgState part={part} queryParams={queryParams} cards={cards} columns={columns} />
+        <PartMfgState
+          part={part}
+          queryParams={queryParams}
+          cards={cards}
+          columns={columns}
+        />
       </CardContent>
     </Card>
   );
 }
-

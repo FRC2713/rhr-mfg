@@ -1,10 +1,10 @@
+import type { KanbanCard } from "~/app/api/kanban/cards/types";
 import { supabase } from "~/lib/supabase/client";
 import type {
   KanbanCardRow,
   KanbanCardUpdate,
   KanbanColumnConfig,
 } from "~/lib/supabase/database.types";
-import type { KanbanCard } from "~/routes/api.kanban.cards/types";
 import { deleteImageFromSupabase } from "./images";
 
 /**
@@ -218,7 +218,10 @@ export async function deleteCard(cardId: string): Promise<KanbanCard> {
     .single();
 
   if (fetchError) {
-    console.error("[KANBAN CARDS] Error fetching card for deletion:", fetchError);
+    console.error(
+      "[KANBAN CARDS] Error fetching card for deletion:",
+      fetchError
+    );
     if (fetchError.code === "PGRST116") {
       throw new Error("Card not found");
     }
