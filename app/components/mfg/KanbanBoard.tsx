@@ -289,33 +289,39 @@ export function KanbanBoard({
     return (
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="bg-muted/30 flex items-center justify-between border-b px-6 py-3">
-          <div className="flex items-center gap-3">
-            <div className="text-muted-foreground flex items-center gap-2 text-sm">
-              <Columns3 className="size-4" />
+        <div className="bg-muted/30 flex flex-col gap-2 border-b px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="text-muted-foreground flex items-center gap-2 text-xs sm:text-sm">
+              <Columns3 className="size-3 sm:size-4" />
               <span>0 columns</span>
             </div>
-            <Badge variant="secondary" className="tabular-nums">
+            <Badge variant="secondary" className="text-xs tabular-nums">
               {cards.length} cards
             </Badge>
           </div>
         </div>
 
         {/* Empty State */}
-        <div className="bg-muted/10 flex flex-1 items-center justify-center p-8">
-          <div className="bg-card flex max-w-md flex-col items-center rounded-2xl border-2 border-dashed p-12 text-center shadow-sm">
-            <div className="bg-muted mb-4 rounded-full p-4">
-              <Columns3 className="text-muted-foreground size-8" />
+        <div className="bg-muted/10 flex flex-1 items-center justify-center p-4 sm:p-8">
+          <div className="bg-card flex w-full max-w-md flex-col items-center rounded-2xl border-2 border-dashed p-6 text-center shadow-sm sm:p-12">
+            <div className="bg-muted mb-3 rounded-full p-3 sm:mb-4 sm:p-4">
+              <Columns3 className="text-muted-foreground size-6 sm:size-8" />
             </div>
-            <h3 className="mb-2 text-lg font-semibold">No columns yet</h3>
-            <p className="text-muted-foreground mb-6 text-sm">
+            <h3 className="mb-2 text-base font-semibold sm:text-lg">
+              No columns yet
+            </h3>
+            <p className="text-muted-foreground mb-4 text-xs sm:mb-6 sm:text-sm">
               {isEditMode
                 ? "Create your first column to start organizing your workflow. You can add, rename, and reorder columns as needed."
                 : "Enter edit mode to create your first column and start organizing your workflow."}
             </p>
             {isEditMode && (
-              <Button onClick={handleAddColumn} size="lg">
-                <Plus className="mr-2 size-5" />
+              <Button
+                onClick={handleAddColumn}
+                size="lg"
+                className="w-full sm:w-auto"
+              >
+                <Plus className="mr-2 size-4 sm:size-5" />
                 Create First Column
               </Button>
             )}
@@ -328,23 +334,28 @@ export function KanbanBoard({
   return (
     <div className="flex h-full flex-col">
       {/* Board Header */}
-      <div className="bg-muted/30 flex items-center justify-between border-b px-6 py-3">
-        <div className="flex items-center gap-3">
-          <div className="text-muted-foreground flex items-center gap-2 text-sm">
-            <Columns3 className="size-4" />
+      <div className="bg-muted/30 flex flex-col gap-2 border-b px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="text-muted-foreground flex items-center gap-2 text-xs sm:text-sm">
+            <Columns3 className="size-3 sm:size-4" />
             <span>
               {columns.length} {columns.length === 1 ? "column" : "columns"}
             </span>
           </div>
-          <Badge variant="secondary" className="tabular-nums">
+          <Badge variant="secondary" className="text-xs tabular-nums">
             {cards.length} {cards.length === 1 ? "card" : "cards"}
           </Badge>
           {isLoadingCards && (
-            <Loader2 className="text-muted-foreground size-4 animate-spin" />
+            <Loader2 className="text-muted-foreground size-3 animate-spin sm:size-4" />
           )}
         </div>
         {isEditMode && (
-          <Button onClick={handleAddColumn} size="sm" variant="outline">
+          <Button
+            onClick={handleAddColumn}
+            size="sm"
+            variant="outline"
+            className="w-full sm:w-auto"
+          >
             <Plus className="mr-2 size-4" />
             Add Column
           </Button>
@@ -372,7 +383,7 @@ export function KanbanBoard({
             items={columns.map((col) => col.id)}
             strategy={horizontalListSortingStrategy}
           >
-            <div className="flex h-full gap-4 overflow-x-auto p-6">
+            <div className="flex h-full gap-3 overflow-x-auto p-3 sm:gap-4 sm:p-6">
               {columns.map((column) => (
                 <KanbanColumn
                   key={column.id}
@@ -388,10 +399,12 @@ export function KanbanBoard({
               {isEditMode && (
                 <button
                   onClick={handleAddColumn}
-                  className="border-muted-foreground/20 bg-muted/20 text-muted-foreground hover:border-muted-foreground/40 hover:bg-muted/40 hover:text-foreground flex h-full w-[320px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-all"
+                  className="border-muted-foreground/20 bg-muted/20 text-muted-foreground hover:border-muted-foreground/40 hover:bg-muted/40 hover:text-foreground flex h-full w-[280px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-all sm:w-[320px]"
                 >
-                  <Plus className="size-6" />
-                  <span className="text-sm font-medium">Add Column</span>
+                  <Plus className="size-5 sm:size-6" />
+                  <span className="text-xs font-medium sm:text-sm">
+                    Add Column
+                  </span>
                 </button>
               )}
             </div>
@@ -426,21 +439,21 @@ export function KanbanBoardSkeleton() {
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 gap-4 overflow-hidden p-6">
+      <div className="flex flex-1 gap-3 overflow-hidden p-3 sm:gap-4 sm:p-6">
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="bg-card flex h-full w-[320px] shrink-0 flex-col rounded-xl border"
+            className="bg-card flex h-full w-[280px] shrink-0 flex-col rounded-xl border sm:w-[320px]"
           >
-            <div className="bg-muted/30 flex items-center gap-2 border-b px-3 py-3">
-              <Skeleton className="h-5 w-24" />
-              <Skeleton className="h-5 w-8 rounded-full" />
+            <div className="bg-muted/30 flex items-center gap-2 border-b px-2 py-2 sm:px-3 sm:py-3">
+              <Skeleton className="h-4 w-20 sm:h-5 sm:w-24" />
+              <Skeleton className="h-4 w-6 rounded-full sm:h-5 sm:w-8" />
             </div>
-            <div className="flex-1 space-y-3 p-3">
+            <div className="flex-1 space-y-2 p-2 sm:space-y-3 sm:p-3">
               {[1, 2, 3].slice(0, Math.ceil(Math.random() * 3)).map((j) => (
                 <Skeleton
                   key={j}
-                  className="h-24 w-full rounded-lg"
+                  className="h-20 w-full rounded-lg sm:h-24"
                   style={{
                     animationDelay: `${(i + j) * 100}ms`,
                   }}

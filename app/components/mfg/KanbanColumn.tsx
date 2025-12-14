@@ -87,14 +87,14 @@ export function KanbanColumn({
       <div
         ref={combinedRef}
         style={style}
-        className={`group/column bg-card flex h-full w-[320px] flex-shrink-0 flex-col rounded-xl border transition-all duration-200 ${
+        className={`group/column bg-card flex h-full w-[280px] shrink-0 flex-col rounded-xl border transition-all duration-200 sm:w-[320px] ${
           isDragging
             ? "ring-primary/20 scale-[1.02] rotate-1 shadow-2xl ring-2"
             : ""
         } ${isOver ? "ring-primary ring-offset-background ring-2 ring-offset-2" : ""}`}
       >
         {/* Column Header */}
-        <div className="bg-muted/30 flex items-center gap-2 border-b px-3 py-3">
+        <div className="bg-muted/30 flex items-center gap-2 border-b px-2 py-2 sm:px-3 sm:py-3">
           {/* Drag Handle - only visible in edit mode */}
           {isEditMode && (
             <button
@@ -116,7 +116,7 @@ export function KanbanColumn({
               onEditStart={() => setIsEditing(true)}
               onEditEnd={() => setIsEditing(false)}
             />
-            <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium tabular-nums">
+            <span className="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums sm:px-2 sm:text-xs">
               {cards.length}
             </span>
           </div>
@@ -153,25 +153,25 @@ export function KanbanColumn({
         </div>
 
         {/* Cards Container */}
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto p-2 sm:p-3">
           <SortableContext
             items={cards.map((card) => card.id)}
             strategy={verticalListSortingStrategy}
           >
             {cards.length === 0 ? (
               <div
-                className={`flex h-32 flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
+                className={`flex h-24 flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors sm:h-32 ${
                   isOver
                     ? "border-primary bg-primary/5"
                     : "border-muted-foreground/20"
                 }`}
               >
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground text-xs sm:text-sm">
                   {isOver ? "Drop here" : "No cards"}
                 </p>
               </div>
             ) : (
-              <div className="space-y-0">
+              <div className="space-y-1.5 sm:space-y-2">
                 {cards.map((card) => (
                   <KanbanCard key={card.id} card={card} />
                 ))}

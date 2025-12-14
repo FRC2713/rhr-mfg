@@ -205,7 +205,7 @@ export function KanbanCard({ card }: KanbanCardProps) {
 
         <div className="relative">
           {/* Card Header */}
-          <div className="flex items-start gap-2 p-3 pb-2">
+          <div className="flex items-start gap-2 p-2.5 pb-2 sm:p-3 sm:pb-2">
             {/* Drag Handle */}
             <button
               {...attributes}
@@ -217,7 +217,7 @@ export function KanbanCard({ card }: KanbanCardProps) {
             </button>
 
             {/* Title */}
-            <h3 className="line-clamp-2 flex-1 text-sm leading-tight font-semibold">
+            <h3 className="line-clamp-2 flex-1 text-xs leading-tight font-semibold sm:text-sm">
               {card.title}
             </h3>
 
@@ -422,7 +422,7 @@ export function KanbanCard({ card }: KanbanCardProps) {
 
           {/* Card Image */}
           {imageUrl && !imageError && (
-            <div className="px-3 pb-2">
+            <div className="px-2.5 pb-2 sm:px-3">
               <div className="bg-muted/50 overflow-hidden rounded-md border">
                 <img
                   src={imageUrl}
@@ -437,7 +437,7 @@ export function KanbanCard({ card }: KanbanCardProps) {
 
           {/* Card Meta */}
           {hasMeta && (
-            <CardContent className="flex flex-wrap gap-1.5 px-3 pt-0 pb-3">
+            <CardContent className="flex flex-wrap gap-1.5 px-2.5 pt-0 pb-2.5 sm:px-3 sm:pb-3">
               {card.assignee && (
                 <Badge
                   variant="secondary"

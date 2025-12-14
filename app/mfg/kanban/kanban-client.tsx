@@ -100,20 +100,20 @@ export function MfgKanbanClient() {
     <main className="bg-background flex h-full flex-1 flex-col overflow-hidden">
       {/* Page Header */}
       <header className="from-card via-card to-muted/50 relative border-b bg-linear-to-r">
-        <div className="relative px-6 py-6">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4">
+        <div className="relative px-4 py-4 sm:px-6 sm:py-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3 sm:gap-4">
               {/* Icon */}
-              <div className="bg-primary/10 ring-primary/20 flex size-12 items-center justify-center rounded-xl ring-1">
-                <KanbanSquare className="text-primary size-6" />
+              <div className="bg-primary/10 ring-primary/20 flex size-10 shrink-0 items-center justify-center rounded-xl ring-1 sm:size-12">
+                <KanbanSquare className="text-primary size-5 sm:size-6" />
               </div>
 
               {/* Title & Description */}
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
                   Kanban Board
                 </h1>
-                <p className="text-muted-foreground mt-1 text-sm">
+                <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
                   Organize your manufacturing workflow with drag-and-drop
                   columns and cards
                 </p>
@@ -121,16 +121,17 @@ export function MfgKanbanClient() {
             </div>
 
             {/* Edit Mode Controls */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
               {!isEditMode ? (
                 <Button
                   onClick={handleEnterEditMode}
                   variant="outline"
                   size="sm"
                   disabled={!config}
+                  className="w-full sm:w-auto"
                 >
                   <Edit className="mr-2 size-4" />
-                  Edit Columns
+                  <span className="sm:inline">Edit Columns</span>
                 </Button>
               ) : (
                 <>
@@ -139,6 +140,7 @@ export function MfgKanbanClient() {
                     variant="outline"
                     size="sm"
                     disabled={saveConfigMutation.isPending}
+                    className="flex-1 sm:flex-initial"
                   >
                     <X className="mr-2 size-4" />
                     Cancel
@@ -147,6 +149,7 @@ export function MfgKanbanClient() {
                     onClick={handleSave}
                     size="sm"
                     disabled={saveConfigMutation.isPending}
+                    className="flex-1 sm:flex-initial"
                   >
                     <Save className="mr-2 size-4" />
                     Save
@@ -157,7 +160,7 @@ export function MfgKanbanClient() {
               {saveConfigMutation.isPending && (
                 <div className="bg-muted/80 text-muted-foreground flex items-center gap-2 rounded-full px-3 py-1.5 text-xs">
                   <Settings2 className="size-3 animate-spin" />
-                  <span>Saving...</span>
+                  <span className="hidden sm:inline">Saving...</span>
                 </div>
               )}
             </div>
