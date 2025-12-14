@@ -179,6 +179,9 @@ export function MfgPartsClient({
 
   const error = validationError || (partsError ? String(partsError) : null);
 
+  console.log("parts", parts);
+  console.log("queryParams", queryParams);
+
   // Show loading screen while data is being fetched
   if (isLoadingParts && queryParams?.documentId) {
     return (
