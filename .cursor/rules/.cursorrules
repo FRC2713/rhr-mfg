@@ -5,3 +5,5 @@ Use the latest version of Shadcn to install new components, like this command to
 ```bash
 pnpx shadcn@latest add button
 ```
+
+this is nextjs 16 which uses proxy.ts and not middleware.ts

@@ -15,13 +15,15 @@ export default function proxy(request: NextRequest) {
   if (!isAuthenticated) {
     // Preserve the full URL including query parameters for redirect
     const fullPath = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
-    const signinUrl = new URL("/signin", request.url);
-    signinUrl.searchParams.set("redirect", fullPath);
 
-    console.log("[PROXY] Not authenticated, redirecting to signin");
+    // Redirect directly to Onshape auth
+    const authUrl = new URL("/auth/onshape", request.url);
+    authUrl.searchParams.set("redirect", fullPath);
+
+    console.log("[PROXY] Not authenticated, redirecting to Onshape auth");
     console.log("[PROXY] Full path:", fullPath);
 
-    return NextResponse.redirect(signinUrl);
+    return NextResponse.redirect(authUrl);
   }
 
   // User is authenticated, proceed with the request
