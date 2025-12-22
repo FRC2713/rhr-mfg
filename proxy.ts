@@ -9,11 +9,16 @@ export default function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow requests coming from auth callback (prevents redirect loops)
-  // The callback adds ?auth=success to indicate successful authentication
-  // Even if cookies aren't immediately readable, we trust the callback
+  // Allow requests coming from auth callback or /auth/onshape (prevents redirect loops)
+  // These routes add ?auth=success to indicate successful authentication
+  // Even if cookies aren't immediately readable in iframe contexts, we trust these routes
   if (searchParams.get("auth") === "success") {
     // Allow the request through - cookies should be set by now
+    // The ?auth=success param will remain in the URL but won't cause issues
+    // It will be naturally cleaned on subsequent navigations
+    console.log(
+      "[PROXY] Auth success param detected, allowing request through"
+    );
     return NextResponse.next();
   }
 

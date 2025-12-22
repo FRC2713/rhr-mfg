@@ -144,10 +144,14 @@ export async function clearOAuthRedirect(): Promise<void> {
 
 /**
  * Check if Onshape is authenticated (has valid access token)
+ * Also checks token expiration to match middleware behavior
  */
 export async function isOnshapeAuthenticated(): Promise<boolean> {
-  const { accessToken } = await getOnshapeTokens();
-  return !!accessToken;
+  const { accessToken, expiresAt } = await getOnshapeTokens();
+  if (!accessToken) return false;
+  // Check if token is expired
+  if (expiresAt && Date.now() >= expiresAt) return false;
+  return true;
 }
 
 /**

@@ -41,6 +41,8 @@ export async function GET(request: Request) {
       ? "/" 
       : redirectTo;
     const redirectUrl = new URL(safeRedirect, url.origin);
+    // Add auth=success param to bypass middleware check (prevents redirect loops in iframe contexts)
+    redirectUrl.searchParams.set("auth", "success");
     console.log(
       "[AUTH ONSHAPE] Redirecting authenticated user to:",
       redirectUrl.toString()
