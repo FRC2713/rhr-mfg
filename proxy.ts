@@ -13,14 +13,23 @@ export default function proxy(request: NextRequest) {
   const isAuthenticated = isOnshapeAuthenticatedFromRequest(request);
 
   if (!isAuthenticated) {
-    // Preserve the full URL including query parameters for redirect
-    const fullPath = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    // For API routes, return 401 JSON response
+    if (pathname.startsWith("/api/")) {
+      console.log("[PROXY] API route not authenticated, returning 401");
+      return NextResponse.json(
+        { error: "Not authenticated with Onshape" },
+        { status: 401 }
+      );
+    }
 
-    // Redirect directly to Onshape auth
+    // For page routes, redirect to Onshape auth
+    const fullPath = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
     const authUrl = new URL("/auth/onshape", request.url);
     authUrl.searchParams.set("redirect", fullPath);
 
-    console.log("[PROXY] Not authenticated, redirecting to Onshape auth");
+    console.log(
+      "[PROXY] Page route not authenticated, redirecting to Onshape auth"
+    );
     console.log("[PROXY] Full path:", fullPath);
 
     return NextResponse.redirect(authUrl);
@@ -34,11 +43,12 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes - we'll handle /api/onshape/* separately if needed)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public files (public folder)
+     *
+     * Note: API routes are now included and require authentication
      */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],

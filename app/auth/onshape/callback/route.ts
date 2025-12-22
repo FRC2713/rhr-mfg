@@ -206,8 +206,9 @@ export async function GET(request: Request) {
       );
     }
 
-    // Always redirect back to signin page to check if other service needs auth
-    const redirectTo = "/signin";
+    // Redirect to home page after successful authentication
+    // The original redirect parameter is lost during OAuth flow, so we default to home
+    const redirectTo = "/";
     const redirectUrl = new URL(redirectTo, url.origin);
     console.log("[AUTH CALLBACK] Redirecting to:", redirectUrl.toString());
     console.log("[AUTH CALLBACK] ===== Callback Complete =====");

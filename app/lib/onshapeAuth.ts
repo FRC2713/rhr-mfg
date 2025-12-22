@@ -174,11 +174,14 @@ export function getOAuthStateFromRequest(request: Request): string | null {
 
 /**
  * Check if Onshape is authenticated from a request (for route handlers)
- * Reads cookies from request headers
+ * Reads cookies from request headers and validates token expiration
  */
 export function isOnshapeAuthenticatedFromRequest(request: Request): boolean {
-  const { accessToken } = getOnshapeTokensFromRequest(request);
-  return !!accessToken;
+  const { accessToken, expiresAt } = getOnshapeTokensFromRequest(request);
+  if (!accessToken) return false;
+  // Check if token is expired
+  if (expiresAt && Date.now() >= expiresAt) return false;
+  return true;
 }
 
 /**
