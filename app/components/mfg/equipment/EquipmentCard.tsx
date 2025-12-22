@@ -1,13 +1,13 @@
 import { MapPin } from "lucide-react";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
-import type { EquipmentRow } from "~/lib/supabase/database.types";
-import { EquipmentCategoryChip } from "./shared/EquipmentCategoryChip";
+import type { EquipmentRow, ProcessRow } from "~/lib/supabase/database.types";
+import { EquipmentProcessChip } from "./shared/EquipmentCategoryChip";
 import { EquipmentImage } from "./shared/EquipmentImage";
 import { EquipmentStatusBadge } from "./shared/EquipmentStatusBadge";
 import { EquipmentActionsMenu } from "./shared/EquipmentActionsMenu";
 
 interface EquipmentCardProps {
-  equipment: EquipmentRow;
+  equipment: EquipmentRow & { processes?: ProcessRow[] };
   onEdit: () => void;
   onDelete: () => void;
   onViewDetails: () => void;
@@ -52,8 +52,12 @@ export function EquipmentCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          {equipment.category && (
-            <EquipmentCategoryChip category={equipment.category} />
+          {equipment.processes && equipment.processes.length > 0 && (
+            <>
+              {equipment.processes.map((process) => (
+                <EquipmentProcessChip key={process.id} process={process} />
+              ))}
+            </>
           )}
           <EquipmentStatusBadge
             status={equipment.status as "available" | "in-use" | "maintenance" | "retired" | null}

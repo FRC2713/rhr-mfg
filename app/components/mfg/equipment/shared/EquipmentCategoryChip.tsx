@@ -1,25 +1,22 @@
 import { Badge } from "~/components/ui/badge";
 import { cn } from "~/lib/utils";
+import type { ProcessRow } from "~/lib/supabase/database.types";
 
-interface EquipmentCategoryChipProps {
-  category: string | null | undefined;
+interface EquipmentProcessChipProps {
+  process: ProcessRow;
   className?: string;
 }
 
-export function EquipmentCategoryChip({
-  category,
+export function EquipmentProcessChip({
+  process,
   className,
-}: EquipmentCategoryChipProps) {
-  if (!category) {
-    return null;
-  }
-
+}: EquipmentProcessChipProps) {
   return (
     <Badge
       variant="secondary"
       className={cn("font-normal", className)}
     >
-      {category}
+      {process.name}
     </Badge>
   );
 }

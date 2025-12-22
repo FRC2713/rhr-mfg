@@ -11,8 +11,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "~/components/ui/sheet";
-import type { EquipmentRow } from "~/lib/supabase/database.types";
-import { EquipmentCategoryChip } from "./shared/EquipmentCategoryChip";
+import type { EquipmentRow, ProcessRow } from "~/lib/supabase/database.types";
+import { EquipmentProcessChip } from "./shared/EquipmentCategoryChip";
 import { EquipmentStatusBadge } from "./shared/EquipmentStatusBadge";
 import { EquipmentActionsMenu } from "./shared/EquipmentActionsMenu";
 import { EquipmentImageGallery } from "./EquipmentImageGallery";
@@ -20,7 +20,7 @@ import { EquipmentImageGallery } from "./EquipmentImageGallery";
 interface EquipmentDetailsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  equipment: EquipmentRow | null;
+  equipment: (EquipmentRow & { processes?: ProcessRow[] }) | null;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -116,10 +116,14 @@ export function EquipmentDetailsSheet({
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
-          {/* Status and Category */}
+          {/* Status and Processes */}
           <div className="flex flex-wrap items-center gap-2">
-            {equipment.category && (
-              <EquipmentCategoryChip category={equipment.category} />
+            {equipment.processes && equipment.processes.length > 0 && (
+              <>
+                {equipment.processes.map((process) => (
+                  <EquipmentProcessChip key={process.id} process={process} />
+                ))}
+              </>
             )}
             <EquipmentStatusBadge
               status={

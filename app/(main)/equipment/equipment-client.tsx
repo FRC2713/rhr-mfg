@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { EquipmentRow } from "~/lib/supabase/database.types";
+import type { EquipmentRow, ProcessRow } from "~/lib/supabase/database.types";
 import { EquipmentHeader } from "~/components/mfg/equipment/EquipmentHeader";
 import { EquipmentGrid } from "~/components/mfg/equipment/EquipmentGrid";
 import { AddEquipmentDialog } from "~/components/mfg/equipment/AddEquipmentDialog";
@@ -17,7 +17,7 @@ async function fetchEquipment() {
     throw new Error("Failed to fetch equipment");
   }
   const data = await response.json();
-  return data.equipment as EquipmentRow[];
+  return data.equipment as (EquipmentRow & { processes?: ProcessRow[] })[];
 }
 
 export function EquipmentClient() {
@@ -25,10 +25,12 @@ export function EquipmentClient() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [detailsSheetOpen, setDetailsSheetOpen] = useState(false);
-  const [selectedEquipment, setSelectedEquipment] = useState<EquipmentRow | null>(null);
+  const [selectedEquipment, setSelectedEquipment] = useState<
+    (EquipmentRow & { processes?: ProcessRow[] }) | null
+  >(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<EquipmentFilters>({
-    category: "",
+    processId: "",
     status: "",
     location: "",
   });
@@ -38,17 +40,7 @@ export function EquipmentClient() {
     queryFn: fetchEquipment,
   });
 
-  // Extract unique categories and locations for filters
-  const availableCategories = useMemo(() => {
-    const categories = new Set<string>();
-    equipment.forEach((item) => {
-      if (item.category) {
-        categories.add(item.category);
-      }
-    });
-    return Array.from(categories).sort();
-  }, [equipment]);
-
+  // Extract unique locations for filters
   const availableLocations = useMemo(() => {
     const locations = new Set<string>();
     equipment.forEach((item) => {
@@ -65,16 +57,21 @@ export function EquipmentClient() {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
+        const processNames =
+          item.processes?.map((p) => p.name.toLowerCase()).join(" ") || "";
         const matchesSearch =
           item.name.toLowerCase().includes(query) ||
           item.description?.toLowerCase().includes(query) ||
-          item.category?.toLowerCase().includes(query) ||
+          processNames.includes(query) ||
           item.location?.toLowerCase().includes(query);
         if (!matchesSearch) return false;
       }
 
-      // Category filter
-      if (filters.category && item.category !== filters.category) {
+      // Process filter
+      if (
+        filters.processId &&
+        !item.processes?.some((p) => p.id === filters.processId)
+      ) {
         return false;
       }
 
@@ -92,17 +89,23 @@ export function EquipmentClient() {
     });
   }, [equipment, searchQuery, filters]);
 
-  const handleEdit = (equipment: EquipmentRow) => {
+  const handleEdit = (
+    equipment: EquipmentRow & { processes?: ProcessRow[] }
+  ) => {
     setSelectedEquipment(equipment);
     setEditDialogOpen(true);
   };
 
-  const handleDelete = (equipment: EquipmentRow) => {
+  const handleDelete = (
+    equipment: EquipmentRow & { processes?: ProcessRow[] }
+  ) => {
     setSelectedEquipment(equipment);
     setDeleteDialogOpen(true);
   };
 
-  const handleViewDetails = (equipment: EquipmentRow) => {
+  const handleViewDetails = (
+    equipment: EquipmentRow & { processes?: ProcessRow[] }
+  ) => {
     setSelectedEquipment(equipment);
     setDetailsSheetOpen(true);
   };
@@ -126,15 +129,13 @@ export function EquipmentClient() {
         onSearchChange={setSearchQuery}
       />
 
-      {(availableCategories.length > 0 ||
-        availableLocations.length > 0 ||
-        filters.category ||
+      {(availableLocations.length > 0 ||
+        filters.processId ||
         filters.status ||
         filters.location) && (
         <EquipmentFiltersComponent
           filters={filters}
           onFiltersChange={setFilters}
-          availableCategories={availableCategories}
           availableLocations={availableLocations}
         />
       )}

@@ -29,7 +29,7 @@ export function AddEquipmentDialog({
   const [formData, setFormData] = useState<EquipmentFormData>({
     name: "",
     description: "",
-    category: "",
+    processIds: [],
     location: "",
     status: "",
     documentationUrl: "",
@@ -49,7 +49,7 @@ export function AddEquipmentDialog({
         body: JSON.stringify({
           name: data.equipment.name,
           description: data.equipment.description || undefined,
-          category: data.equipment.category || undefined,
+          processIds: data.equipment.processIds || [],
           location: data.equipment.location || undefined,
           status: data.equipment.status || undefined,
           documentationUrl: data.equipment.documentationUrl || undefined,
@@ -102,7 +102,7 @@ export function AddEquipmentDialog({
     setFormData({
       name: "",
       description: "",
-      category: "",
+      processIds: [],
       location: "",
       status: "",
       documentationUrl: "",

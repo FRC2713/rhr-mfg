@@ -2,6 +2,7 @@ import { supabase } from "~/lib/supabase/client";
 import type {
   KanbanCardRow,
   KanbanColumnConfig,
+  ProcessRow,
 } from "~/lib/supabase/database.types";
 
 /**
@@ -13,14 +14,20 @@ export interface GetCardsResult {
 }
 
 /**
- * Get all cards from Supabase database
+ * Get all cards from Supabase database with processes
  * Returns both cards and potential error for proper error handling
  */
 export async function getCards(): Promise<GetCardsResult> {
   try {
     const { data, error } = await supabase
       .from("kanban_cards")
-      .select("*")
+      .select(`
+        *,
+        kanban_card_processes (
+          process_id,
+          processes (*)
+        )
+      `)
       .order("date_created", { ascending: true });
 
     if (error) {
@@ -28,7 +35,19 @@ export async function getCards(): Promise<GetCardsResult> {
       return { cards: [], error: error.message };
     }
 
-    return { cards: data || [] };
+    // Transform the data to include processes as a flat array
+    const cardsWithProcesses = (data || []).map((item: any) => {
+      const processes = (item.kanban_card_processes || []).map(
+        (kcp: any) => kcp.processes
+      );
+      const { kanban_card_processes, ...card } = item;
+      return {
+        ...card,
+        processes,
+      };
+    });
+
+    return { cards: cardsWithProcesses };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown error fetching cards";
@@ -75,6 +94,7 @@ export interface CreateCardInput {
   machine?: string;
   dueDate?: string;
   content?: string;
+  processIds?: string[];
   id?: string;
   createdBy?: string;
 }
@@ -118,6 +138,11 @@ export async function createCard(
   if (error) {
     console.error("[KANBAN CARDS] Error creating card:", error);
     throw new Error(`Failed to create card: ${error.message}`);
+  }
+
+  // Associate processes if provided
+  if (cardData.processIds && cardData.processIds.length > 0) {
+    await setCardProcesses(cardId, cardData.processIds);
   }
 
   return data;
@@ -191,4 +216,79 @@ export async function deleteCard(cardId: string): Promise<KanbanCardRow> {
   }
 
   return cardData;
+}
+
+/**
+ * Get processes for a kanban card
+ */
+export async function getCardProcesses(
+  cardId: string
+): Promise<ProcessRow[]> {
+  try {
+    const { data, error } = await supabase
+      .from("kanban_card_processes")
+      .select("process_id, processes (*)")
+      .eq("card_id", cardId);
+
+    if (error) {
+      console.error("[KANBAN CARDS] Error fetching card processes:", error);
+      throw new Error(`Failed to fetch card processes: ${error.message}`);
+    }
+
+    return (data || []).map((item: any) => item.processes);
+  } catch (error) {
+    console.error("[KANBAN CARDS] Error fetching card processes:", error);
+    throw error;
+  }
+}
+
+/**
+ * Set processes for a kanban card (replaces existing)
+ */
+export async function setCardProcesses(
+  cardId: string,
+  processIds: string[]
+): Promise<void> {
+  try {
+    // First, delete all existing process associations
+    const { error: deleteError } = await supabase
+      .from("kanban_card_processes")
+      .delete()
+      .eq("card_id", cardId);
+
+    if (deleteError) {
+      console.error(
+        "[KANBAN CARDS] Error deleting card processes:",
+        deleteError
+      );
+      throw new Error(
+        `Failed to delete card processes: ${deleteError.message}`
+      );
+    }
+
+    // Then, insert new associations
+    if (processIds.length > 0) {
+      const cardProcesses = processIds.map((processId) => ({
+        card_id: cardId,
+        process_id: processId,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("kanban_card_processes")
+        .insert(cardProcesses);
+
+      if (insertError) {
+        console.error(
+          "[KANBAN CARDS] Error inserting card processes:",
+          insertError
+        );
+        throw new Error(
+          `Failed to insert card processes: ${insertError.message}`
+        );
+      }
+    }
+  } catch (error) {
+    console.error("[KANBAN CARDS] Error setting card processes:", error);
+    throw error;
+  }
 }

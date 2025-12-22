@@ -1,6 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "~/components/ui/button";
 import {
   Select,
@@ -10,9 +11,10 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import type { EquipmentStatus } from "./shared/EquipmentStatusBadge";
+import type { ProcessRow } from "~/lib/supabase/database.types";
 
 export interface EquipmentFilters {
-  category: string;
+  processId: string;
   status: EquipmentStatus | "";
   location: string;
 }
@@ -20,22 +22,32 @@ export interface EquipmentFilters {
 interface EquipmentFiltersProps {
   filters: EquipmentFilters;
   onFiltersChange: (filters: EquipmentFilters) => void;
-  availableCategories: string[];
   availableLocations: string[];
 }
 
 export function EquipmentFiltersComponent({
   filters,
   onFiltersChange,
-  availableCategories,
   availableLocations,
 }: EquipmentFiltersProps) {
+  // Fetch processes from API
+  const { data: processesData } = useQuery<{ processes: ProcessRow[] }>({
+    queryKey: ["processes"],
+    queryFn: async () => {
+      const response = await fetch("/api/processes");
+      if (!response.ok) throw new Error("Failed to fetch processes");
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const processes = processesData?.processes || [];
   const hasActiveFilters =
-    filters.category || filters.status || filters.location;
+    filters.processId || filters.status || filters.location;
 
   const clearFilters = () => {
     onFiltersChange({
-      category: "",
+      processId: "",
       status: "",
       location: "",
     });
@@ -44,18 +56,18 @@ export function EquipmentFiltersComponent({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Select
-        value={filters.category || undefined}
+        value={filters.processId || undefined}
         onValueChange={(value) =>
-          onFiltersChange({ ...filters, category: value })
+          onFiltersChange({ ...filters, processId: value })
         }
       >
         <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Category" />
+          <SelectValue placeholder="Process" />
         </SelectTrigger>
         <SelectContent>
-          {availableCategories.map((category) => (
-            <SelectItem key={category} value={category}>
-              {category}
+          {processes.map((process) => (
+            <SelectItem key={process.id} value={process.id}>
+              {process.name}
             </SelectItem>
           ))}
         </SelectContent>

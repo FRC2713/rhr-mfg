@@ -112,7 +112,6 @@ export interface Database {
           id: string;
           name: string;
           description: string | null;
-          category: string | null;
           location: string | null;
           status: string | null;
           documentation_url: string | null;
@@ -124,7 +123,6 @@ export interface Database {
           id: string;
           name: string;
           description?: string | null;
-          category?: string | null;
           location?: string | null;
           status?: string | null;
           documentation_url?: string | null;
@@ -136,7 +134,6 @@ export interface Database {
           id?: string;
           name?: string;
           description?: string | null;
-          category?: string | null;
           location?: string | null;
           status?: string | null;
           documentation_url?: string | null;
@@ -145,6 +142,86 @@ export interface Database {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      processes: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      equipment_processes: {
+        Row: {
+          equipment_id: string;
+          process_id: string;
+        };
+        Insert: {
+          equipment_id: string;
+          process_id: string;
+        };
+        Update: {
+          equipment_id?: string;
+          process_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "equipment_processes_equipment_id_fkey";
+            columns: ["equipment_id"];
+            referencedRelation: "equipment";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "equipment_processes_process_id_fkey";
+            columns: ["process_id"];
+            referencedRelation: "processes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      kanban_card_processes: {
+        Row: {
+          card_id: string;
+          process_id: string;
+        };
+        Insert: {
+          card_id: string;
+          process_id: string;
+        };
+        Update: {
+          card_id?: string;
+          process_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "kanban_card_processes_card_id_fkey";
+            columns: ["card_id"];
+            referencedRelation: "kanban_cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kanban_card_processes_process_id_fkey";
+            columns: ["process_id"];
+            referencedRelation: "processes";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: {
@@ -182,3 +259,13 @@ export type UserUpdate = Tables<"users">["Update"];
 export type EquipmentRow = Tables<"equipment">["Row"];
 export type EquipmentInsert = Tables<"equipment">["Insert"];
 export type EquipmentUpdate = Tables<"equipment">["Update"];
+
+export type ProcessRow = Tables<"processes">["Row"];
+export type ProcessInsert = Tables<"processes">["Insert"];
+export type ProcessUpdate = Tables<"processes">["Update"];
+
+export type EquipmentProcessRow = Tables<"equipment_processes">["Row"];
+export type EquipmentProcessInsert = Tables<"equipment_processes">["Insert"];
+
+export type KanbanCardProcessRow = Tables<"kanban_card_processes">["Row"];
+export type KanbanCardProcessInsert = Tables<"kanban_card_processes">["Insert"];

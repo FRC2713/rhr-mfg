@@ -1,5 +1,13 @@
-import { useState } from "react";
-import { Calendar, Clock, Trash2, User, Wrench, Box } from "lucide-react";
+import { useState, useMemo } from "react";
+import {
+  Calendar,
+  Clock,
+  Trash2,
+  User,
+  Wrench,
+  Box,
+  ExternalLink,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "~/components/ui/button";
 import {
@@ -19,7 +27,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "~/components/ui/sheet";
-import type { KanbanCardRow, UserRow } from "~/lib/supabase/database.types";
+import type {
+  KanbanCardRow,
+  UserRow,
+  ProcessRow,
+} from "~/lib/supabase/database.types";
+import { Badge } from "~/components/ui/badge";
 import type { UseMutationResult } from "@tanstack/react-query";
 import { AssignCardDialog } from "./AssignCardDialog";
 import { MachineSelectDialog } from "./MachineSelectDialog";
@@ -82,8 +95,75 @@ function getDueDateUrgency(dateString: string): {
   return { variant: "secondary" };
 }
 
+/**
+ * Extract Onshape properties from image URL
+ * Returns null if the URL doesn't contain Onshape data
+ */
+function extractOnshapeProperties(imageUrl?: string): {
+  documentId: string;
+  instanceType: string;
+  instanceId: string;
+  elementId: string;
+} | null {
+  if (!imageUrl) return null;
+
+  try {
+    // Check if it's our proxy format: /api/onshape/thumbnail?url=...
+    if (imageUrl.startsWith("/api/onshape/thumbnail")) {
+      // Parse query parameters manually or use URLSearchParams
+      const queryString = imageUrl.includes("?") ? imageUrl.split("?")[1] : "";
+      const params = new URLSearchParams(queryString);
+      const originalUrl = params.get("url");
+      if (!originalUrl) return null;
+
+      // Decode the URL if it's encoded
+      const decodedUrl = decodeURIComponent(originalUrl);
+
+      // Parse the Onshape thumbnail URL
+      // Format: https://cad.onshape.com/api/v10/thumbnails/d/{documentId}/{wvm}/{instanceId}/e/{elementId}/p/{partId}?...
+      const thumbnailMatch = decodedUrl.match(
+        /\/api\/v10\/thumbnails\/d\/([^\/]+)\/([wvm])\/([^\/]+)\/e\/([^\/]+)/
+      );
+      if (thumbnailMatch) {
+        const [, documentId, instanceType, instanceId, elementId] =
+          thumbnailMatch;
+        return { documentId, instanceType, instanceId, elementId };
+      }
+    }
+
+    // Check if it's a direct Onshape thumbnail URL
+    const directMatch = imageUrl.match(
+      /\/api\/v10\/thumbnails\/d\/([^\/]+)\/([wvm])\/([^\/]+)\/e\/([^\/]+)/
+    );
+    if (directMatch) {
+      const [, documentId, instanceType, instanceId, elementId] = directMatch;
+      return { documentId, instanceType, instanceId, elementId };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Construct Onshape document URL from properties
+ */
+function buildOnshapeDocumentUrl(properties: {
+  documentId: string;
+  instanceType: string;
+  instanceId: string;
+  elementId: string;
+}): string {
+  const { documentId, instanceType, instanceId, elementId } = properties;
+  // Onshape document URLs use 'w' for workspace, 'v' for version, 'm' for microversion
+  // We'll use the instanceType from the thumbnail URL
+  const wvm = instanceType === "w" ? "w" : instanceType === "v" ? "v" : "m";
+  return `https://cad.onshape.com/documents/${documentId}/${wvm}/${instanceId}/e/${elementId}`;
+}
+
 interface KanbanCardDetailsProps {
-  card: KanbanCardRow;
+  card: KanbanCardRow & { processes?: ProcessRow[] };
   imageUrl?: string;
   deleteCardMutation: UseMutationResult<unknown, Error, string, unknown>;
   onDelete: () => void;
@@ -97,8 +177,24 @@ export function KanbanCardDetails({
 }: KanbanCardDetailsProps) {
   const [imageError, setImageError] = useState(false);
 
+  // Extract Onshape properties from image URL
+  const onshapeProperties = useMemo(
+    () => extractOnshapeProperties(imageUrl),
+    [imageUrl]
+  );
+
+  // Build Onshape document URL if properties are available
+  const onshapeUrl = useMemo(() => {
+    if (!onshapeProperties) return null;
+    return buildOnshapeDocumentUrl(onshapeProperties);
+  }, [onshapeProperties]);
+
   const hasMeta =
-    card.assignee || card.material || card.machine || card.due_date;
+    card.assignee ||
+    card.material ||
+    card.machine ||
+    card.due_date ||
+    (card.processes && card.processes.length > 0);
 
   // Fetch creator name if created_by is set
   const creatorQuery = useQuery<UserRow>({
@@ -175,6 +271,30 @@ export function KanbanCardDetails({
 
               <MachineSelectDialog card={card} />
 
+              {card.processes && card.processes.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <div className="flex size-8 items-center justify-center rounded-full bg-blue-500/10">
+                    <Wrench className="size-4 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-muted-foreground mb-1 text-xs">
+                      Required Processes
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {card.processes.map((process) => (
+                        <Badge
+                          key={process.id}
+                          variant="secondary"
+                          className="text-xs"
+                        >
+                          {process.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {card.due_date &&
                 (() => {
                   const urgency = getDueDateUrgency(card.due_date);
@@ -234,8 +354,24 @@ export function KanbanCardDetails({
         </div>
       </div>
 
-      {/* Delete Action - Sticky at bottom */}
-      <div className="mt-auto border-t pt-4">
+      {/* Actions - Sticky at bottom */}
+      <div className="mt-auto space-y-2 border-t pt-4">
+        {/* Open in Onshape Button */}
+        {onshapeUrl && (
+          <Button
+            variant="default"
+            size="sm"
+            className="w-full"
+            onClick={() =>
+              window.open(onshapeUrl, "_blank", "noopener,noreferrer")
+            }
+          >
+            <ExternalLink className="mr-2 size-4" />
+            Open in Onshape
+          </Button>
+        )}
+
+        {/* Delete Action */}
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button

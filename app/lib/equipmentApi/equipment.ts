@@ -1,5 +1,8 @@
 import { supabase } from "~/lib/supabase/client";
-import type { EquipmentRow } from "~/lib/supabase/database.types";
+import type {
+  EquipmentRow,
+  ProcessRow,
+} from "~/lib/supabase/database.types";
 import { deleteEquipmentImage } from "./images";
 
 /**
@@ -11,14 +14,20 @@ export interface GetEquipmentResult {
 }
 
 /**
- * Get all equipment from Supabase database
+ * Get all equipment from Supabase database with processes
  * Returns both equipment and potential error for proper error handling
  */
 export async function getEquipment(): Promise<GetEquipmentResult> {
   try {
     const { data, error } = await supabase
       .from("equipment")
-      .select("*")
+      .select(`
+        *,
+        equipment_processes (
+          process_id,
+          processes (*)
+        )
+      `)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -26,7 +35,19 @@ export async function getEquipment(): Promise<GetEquipmentResult> {
       return { equipment: [], error: error.message };
     }
 
-    return { equipment: data || [] };
+    // Transform the data to include processes as a flat array
+    const equipmentWithProcesses = (data || []).map((item: any) => {
+      const processes = (item.equipment_processes || []).map(
+        (ep: any) => ep.processes
+      );
+      const { equipment_processes, ...equipment } = item;
+      return {
+        ...equipment,
+        processes,
+      };
+    });
+
+    return { equipment: equipmentWithProcesses };
   } catch (error) {
     const message =
       error instanceof Error
@@ -38,15 +59,21 @@ export async function getEquipment(): Promise<GetEquipmentResult> {
 }
 
 /**
- * Get a single equipment item by ID
+ * Get a single equipment item by ID with processes
  */
 export async function getEquipmentById(
   id: string
-): Promise<EquipmentRow | null> {
+): Promise<(EquipmentRow & { processes: ProcessRow[] }) | null> {
   try {
     const { data, error } = await supabase
       .from("equipment")
-      .select("*")
+      .select(`
+        *,
+        equipment_processes (
+          process_id,
+          processes (*)
+        )
+      `)
       .eq("id", id)
       .single();
 
@@ -58,7 +85,15 @@ export async function getEquipmentById(
       throw new Error(`Failed to fetch equipment: ${error.message}`);
     }
 
-    return data;
+    // Transform the data to include processes as a flat array
+    const processes = ((data as any).equipment_processes || []).map(
+      (ep: any) => ep.processes
+    );
+    const { equipment_processes, ...equipment } = data as any;
+    return {
+      ...equipment,
+      processes,
+    };
   } catch (error) {
     console.error("[EQUIPMENT] Error fetching equipment:", error);
     throw error;
@@ -71,11 +106,11 @@ export async function getEquipmentById(
 export interface CreateEquipmentInput {
   name: string;
   description?: string;
-  category?: string;
   location?: string;
   status?: string;
   documentationUrl?: string;
   imageUrls?: string[];
+  processIds?: string[];
   id?: string;
 }
 
@@ -96,7 +131,6 @@ export async function createEquipment(
       id: equipmentId,
       name: equipmentData.name,
       description: equipmentData.description ?? null,
-      category: equipmentData.category ?? null,
       location: equipmentData.location ?? null,
       status: equipmentData.status ?? null,
       documentation_url: equipmentData.documentationUrl ?? null,
@@ -110,6 +144,11 @@ export async function createEquipment(
   if (error) {
     console.error("[EQUIPMENT] Error creating equipment:", error);
     throw new Error(`Failed to create equipment: ${error.message}`);
+  }
+
+  // Associate processes if provided
+  if (equipmentData.processIds && equipmentData.processIds.length > 0) {
+    await setEquipmentProcesses(equipmentId, equipmentData.processIds);
   }
 
   return data;
@@ -192,4 +231,79 @@ export async function deleteEquipment(
   }
 
   return equipmentData;
+}
+
+/**
+ * Get processes for an equipment item
+ */
+export async function getEquipmentProcesses(
+  equipmentId: string
+): Promise<ProcessRow[]> {
+  try {
+    const { data, error } = await supabase
+      .from("equipment_processes")
+      .select("process_id, processes (*)")
+      .eq("equipment_id", equipmentId);
+
+    if (error) {
+      console.error("[EQUIPMENT] Error fetching equipment processes:", error);
+      throw new Error(`Failed to fetch equipment processes: ${error.message}`);
+    }
+
+    return (data || []).map((item: any) => item.processes);
+  } catch (error) {
+    console.error("[EQUIPMENT] Error fetching equipment processes:", error);
+    throw error;
+  }
+}
+
+/**
+ * Set processes for an equipment item (replaces existing)
+ */
+export async function setEquipmentProcesses(
+  equipmentId: string,
+  processIds: string[]
+): Promise<void> {
+  try {
+    // First, delete all existing process associations
+    const { error: deleteError } = await supabase
+      .from("equipment_processes")
+      .delete()
+      .eq("equipment_id", equipmentId);
+
+    if (deleteError) {
+      console.error(
+        "[EQUIPMENT] Error deleting equipment processes:",
+        deleteError
+      );
+      throw new Error(
+        `Failed to delete equipment processes: ${deleteError.message}`
+      );
+    }
+
+    // Then, insert new associations
+    if (processIds.length > 0) {
+      const equipmentProcesses = processIds.map((processId) => ({
+        equipment_id: equipmentId,
+        process_id: processId,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("equipment_processes")
+        .insert(equipmentProcesses);
+
+      if (insertError) {
+        console.error(
+          "[EQUIPMENT] Error inserting equipment processes:",
+          insertError
+        );
+        throw new Error(
+          `Failed to insert equipment processes: ${insertError.message}`
+        );
+      }
+    }
+  } catch (error) {
+    console.error("[EQUIPMENT] Error setting equipment processes:", error);
+    throw error;
+  }
 }

@@ -13,14 +13,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
-import type { EquipmentRow } from "~/lib/supabase/database.types";
+import type { EquipmentRow, ProcessRow } from "~/lib/supabase/database.types";
 import { EquipmentImage } from "./shared/EquipmentImage";
 import { EquipmentStatusBadge } from "./shared/EquipmentStatusBadge";
 
 interface DeleteEquipmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  equipment: EquipmentRow | null;
+  equipment: (EquipmentRow & { processes?: ProcessRow[] }) | null;
 }
 
 export function DeleteEquipmentDialog({
@@ -81,10 +81,20 @@ export function DeleteEquipmentDialog({
             />
             <div className="flex-1 space-y-2">
               <h3 className="font-semibold">{equipment.name}</h3>
-              {equipment.category && (
-                <p className="text-muted-foreground text-sm">
-                  Category: {equipment.category}
-                </p>
+              {equipment.processes && equipment.processes.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {equipment.processes.map((process) => (
+                    <span
+                      key={process.id}
+                      className="text-muted-foreground text-sm"
+                    >
+                      {process.name}
+                      {equipment.processes &&
+                        equipment.processes.indexOf(process) <
+                          equipment.processes.length - 1 && ", "}
+                    </span>
+                  ))}
+                </div>
               )}
               {equipment.status && (
                 <EquipmentStatusBadge

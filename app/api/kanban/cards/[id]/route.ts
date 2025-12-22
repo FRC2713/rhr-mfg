@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteCard, getCards, updateCard } from "~/lib/kanbanApi/cards";
+import {
+  deleteCard,
+  getCards,
+  updateCard,
+  setCardProcesses,
+} from "~/lib/kanbanApi/cards";
 
 export async function GET(
   request: NextRequest,
@@ -33,9 +38,21 @@ export async function PATCH(
 ) {
   const { id } = await params;
   try {
-    const updates = await request.json();
+    const body = await request.json();
+    const { processIds, ...updates } = body;
+
     const updatedCard = await updateCard(id, updates);
-    return NextResponse.json({ card: updatedCard });
+
+    // Update processes if provided
+    if (processIds !== undefined) {
+      await setCardProcesses(id, processIds || []);
+    }
+
+    // Fetch the updated card with processes
+    const result = await getCards();
+    const cardWithProcesses = result.cards.find((c) => c.id === id);
+
+    return NextResponse.json({ card: cardWithProcesses || updatedCard });
   } catch (error) {
     console.error("[KANBAN CARD] Error in action:", error);
     const errorMessage =

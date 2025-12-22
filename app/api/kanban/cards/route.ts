@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createCard, getCards } from "~/lib/kanbanApi/cards";
+import {
+  createCard,
+  getCards,
+  setCardProcesses,
+} from "~/lib/kanbanApi/cards";
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,6 +56,7 @@ export async function POST(request: NextRequest) {
       machine: body.machine,
       dueDate: body.dueDate,
       content: body.content,
+      processIds: body.processIds || [],
       createdBy: body.createdBy,
     });
 

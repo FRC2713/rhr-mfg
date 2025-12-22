@@ -32,7 +32,7 @@ export function EditEquipmentDialog({
   const [formData, setFormData] = useState<EquipmentFormData>({
     name: "",
     description: "",
-    category: "",
+    processIds: [],
     location: "",
     status: "",
     documentationUrl: "",
@@ -45,10 +45,13 @@ export function EditEquipmentDialog({
 
   useEffect(() => {
     if (equipment) {
+      // Extract process IDs from equipment (if it has processes property)
+      const processIds =
+        (equipment as any).processes?.map((p: any) => p.id) || [];
       setFormData({
         name: equipment.name || "",
         description: equipment.description || "",
-        category: equipment.category || "",
+        processIds,
         location: equipment.location || "",
         status: (equipment.status as EquipmentFormData["status"]) || "",
         documentationUrl: equipment.documentation_url || "",
@@ -70,7 +73,7 @@ export function EditEquipmentDialog({
         body: JSON.stringify({
           name: data.equipment.name,
           description: data.equipment.description || undefined,
-          category: data.equipment.category || undefined,
+          processIds: data.equipment.processIds || [],
           location: data.equipment.location || undefined,
           status: data.equipment.status || undefined,
           documentationUrl: data.equipment.documentationUrl || undefined,

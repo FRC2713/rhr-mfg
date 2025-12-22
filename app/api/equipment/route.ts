@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createEquipment, getEquipment } from "~/lib/equipmentApi/equipment";
+import {
+  createEquipment,
+  getEquipment,
+  setEquipmentProcesses,
+} from "~/lib/equipmentApi/equipment";
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,11 +41,11 @@ export async function POST(request: NextRequest) {
       id: body.id,
       name: body.name.trim(),
       description: body.description,
-      category: body.category,
       location: body.location,
       status: body.status,
       documentationUrl: body.documentationUrl,
       imageUrls: body.imageUrls,
+      processIds: body.processIds || [],
     });
 
     return NextResponse.json({ equipment: newEquipment }, { status: 201 });

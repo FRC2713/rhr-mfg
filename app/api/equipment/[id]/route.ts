@@ -3,6 +3,7 @@ import {
   deleteEquipment,
   getEquipmentById,
   updateEquipment,
+  setEquipmentProcesses,
 } from "~/lib/equipmentApi/equipment";
 
 export async function GET(
@@ -42,7 +43,6 @@ export async function PUT(
     const updates: Partial<{
       name: string;
       description: string | null;
-      category: string | null;
       location: string | null;
       status: string | null;
       documentation_url: string | null;
@@ -54,9 +54,6 @@ export async function PUT(
     }
     if (body.description !== undefined) {
       updates.description = body.description || null;
-    }
-    if (body.category !== undefined) {
-      updates.category = body.category || null;
     }
     if (body.location !== undefined) {
       updates.location = body.location || null;
@@ -72,7 +69,15 @@ export async function PUT(
     }
 
     const updatedEquipment = await updateEquipment(id, updates);
-    return NextResponse.json({ equipment: updatedEquipment });
+
+    // Update processes if provided
+    if (body.processIds !== undefined) {
+      await setEquipmentProcesses(id, body.processIds || []);
+    }
+
+    // Fetch the updated equipment with processes
+    const equipmentWithProcesses = await getEquipmentById(id);
+    return NextResponse.json({ equipment: equipmentWithProcesses });
   } catch (error) {
     console.error("[EQUIPMENT] Error updating equipment:", error);
     const errorMessage =
