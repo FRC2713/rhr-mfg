@@ -1,6 +1,8 @@
-import { Edit, Save, Settings2, X } from "lucide-react";
+import { useMemo } from "react";
+import { Edit, Save, Settings2, X, Image, Layers, User } from "lucide-react";
 import { KanbanConfig } from "~/api/kanban/config/route";
 import { Button } from "~/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
 
 interface KanbanBoardControlsProps {
   isEditMode: boolean;
@@ -11,6 +13,10 @@ interface KanbanBoardControlsProps {
   onHideImages: () => void;
   hideImages: boolean;
   isSaving: boolean;
+  groupByProcess: boolean;
+  showOnlyMyCards: boolean;
+  onGroupByProcessChange: (value: boolean) => void;
+  onShowOnlyMyCardsChange: (value: boolean) => void;
 }
 
 export function KanbanBoardControls({
@@ -22,12 +28,59 @@ export function KanbanBoardControls({
   isSaving,
   onHideImages,
   hideImages,
+  groupByProcess,
+  showOnlyMyCards,
+  onGroupByProcessChange,
+  onShowOnlyMyCardsChange,
 }: KanbanBoardControlsProps) {
+  const toggleValues = useMemo(() => {
+    const values: string[] = [];
+    if (!hideImages) values.push("images");
+    if (groupByProcess) values.push("groupByProcess");
+    if (showOnlyMyCards) values.push("myCardsOnly");
+    return values;
+  }, [hideImages, groupByProcess, showOnlyMyCards]);
+
+  const handleValueChange = (values: string[]) => {
+    const hasImages = values.includes("images");
+    const hasGroupByProcess = values.includes("groupByProcess");
+    const hasMyCardsOnly = values.includes("myCardsOnly");
+
+    if (hasImages !== !hideImages) {
+      onHideImages();
+    }
+    if (hasGroupByProcess !== groupByProcess) {
+      onGroupByProcessChange(hasGroupByProcess);
+    }
+    if (hasMyCardsOnly !== showOnlyMyCards) {
+      onShowOnlyMyCardsChange(hasMyCardsOnly);
+    }
+  };
+
   return (
     <div className="flex items-center justify-end gap-2">
-      <Button variant="outline" size="sm" onClick={onHideImages}>
-        {hideImages ? "Show Images" : "Hide Images"}
-      </Button>
+      <ToggleGroup
+        type="multiple"
+        variant="outline"
+        size="sm"
+        value={toggleValues}
+        onValueChange={handleValueChange}
+      >
+        <ToggleGroupItem value="images" aria-label="Toggle images">
+          <Image className="size-4" />
+          <span className="hidden sm:inline">
+            {hideImages ? "Show Images" : "Hide Images"}
+          </span>
+        </ToggleGroupItem>
+        <ToggleGroupItem value="groupByProcess" aria-label="Group by process">
+          <Layers className="size-4" />
+          <span className="hidden sm:inline">Group by Process</span>
+        </ToggleGroupItem>
+        <ToggleGroupItem value="myCardsOnly" aria-label="Show only my cards">
+          <User className="size-4" />
+          <span className="hidden sm:inline">My Cards Only</span>
+        </ToggleGroupItem>
+      </ToggleGroup>
 
       {/* Edit Mode Controls */}
       <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">

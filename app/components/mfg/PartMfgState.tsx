@@ -1,22 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { useEffect, useRef, useState } from "react";
+import type { KanbanColumn } from "~/api/kanban/config/route";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import type { KanbanCardRow } from "~/lib/supabase/database.types";
-import type { KanbanColumn } from "~/api/kanban/config/route";
+import { type AddCardFormData, AddCardDialog } from "./AddCardDialog";
 import { PartDueDate } from "./PartDueDate";
-import { AddCardDialog, type AddCardFormData } from "./AddCardDialog";
 
 import type { PartsPageSearchParams } from "~/onshape_connector/page";
 
@@ -84,21 +77,24 @@ export function PartMfgState({
     const submitFormData = new FormData();
     submitFormData.append("action", "addCard");
     submitFormData.append("partNumber", part.partNumber || "");
-    
+
     // Add process IDs
     formData.processIds.forEach((processId) => {
       submitFormData.append("processIds", processId);
     });
-    
+
     // Add quantities
-    submitFormData.append("quantityPerRobot", String(formData.quantityPerRobot));
+    submitFormData.append(
+      "quantityPerRobot",
+      String(formData.quantityPerRobot)
+    );
     submitFormData.append("quantityToMake", String(formData.quantityToMake));
-    
+
     // Add due date if provided
     if (formData.dueDate) {
       submitFormData.append("dueDate", format(formData.dueDate, "yyyy-MM-dd"));
     }
-    
+
     if (queryParams.documentId) {
       submitFormData.append("documentId", queryParams.documentId);
       submitFormData.append("instanceType", queryParams.instanceType);
@@ -157,51 +153,10 @@ export function PartMfgState({
     );
   }
 
-  // If card found, show dropdown with column selection and badge
-  const handleColumnChange = async (newColumnId: string) => {
-    setIsSubmitting(true);
-    setResult(null);
-
-    const formData = new FormData();
-    formData.append("action", "moveCard");
-    formData.append("cardId", matchingCard.id);
-    formData.append("columnId", newColumnId);
-
-    try {
-      const response = await fetch("/api/mfg/parts/actions", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await response.json();
-      setResult(data);
-    } catch (error) {
-      setResult({ success: false, error: "Failed to move card" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
     <div className="space-y-2">
       <Label className="text-xs">Manufacturing State:</Label>
-      <Select
-        value={currentColumn?.id || ""}
-        onValueChange={handleColumnChange}
-        disabled={isSubmitting}
-      >
-        <SelectTrigger className="h-8 w-full">
-          <SelectValue placeholder="Select column...">
-            {currentColumn?.title || "Select column..."}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {columns.map((column) => (
-            <SelectItem key={column.id} value={column.id}>
-              {column.title}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+
       <PartDueDate
         card={matchingCard}
         part={part}

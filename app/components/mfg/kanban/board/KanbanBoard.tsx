@@ -34,6 +34,9 @@ interface KanbanBoardProps {
   onConfigChange: (config: KanbanConfig) => void;
   isEditMode?: boolean;
   hideImages?: boolean;
+  groupByProcess?: boolean;
+  showOnlyMyCards?: boolean;
+  currentUserId?: string | null;
 }
 
 export function KanbanBoard({
@@ -41,6 +44,9 @@ export function KanbanBoard({
   onConfigChange,
   isEditMode = false,
   hideImages = false,
+  groupByProcess = false,
+  showOnlyMyCards = false,
+  currentUserId = null,
 }: KanbanBoardProps) {
   const [columns, setColumns] = useState<KanbanColumnType[]>(config.columns);
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -75,6 +81,14 @@ export function KanbanBoard({
   });
 
   const cards = cardsData?.cards || [];
+
+  // Filter cards by current user if showOnlyMyCards is enabled
+  const filteredCards = useMemo(() => {
+    if (showOnlyMyCards && currentUserId) {
+      return cards.filter((card) => card.assignee === currentUserId);
+    }
+    return cards;
+  }, [cards, showOnlyMyCards, currentUserId]);
 
   // Sync columns with config when config changes (e.g., on cancel)
   // Only sync if the config actually changed from an external source
@@ -158,17 +172,43 @@ export function KanbanBoard({
     },
   });
 
-  // Group cards by columnId
+  // Group cards by column, optionally sorted by process
   const cardsByColumn = useMemo(() => {
     const grouped: Record<string, KanbanCardRow[]> = {};
-    cards.forEach((card) => {
+
+    // First, group by column
+    filteredCards.forEach((card) => {
       if (!grouped[card.column_id]) {
         grouped[card.column_id] = [];
       }
       grouped[card.column_id].push(card);
     });
+
+    // If grouping by process, sort cards within each column by process name
+    if (groupByProcess) {
+      Object.keys(grouped).forEach((columnId) => {
+        grouped[columnId].sort((a, b) => {
+          const aProcesses = (a as any).processes || [];
+          const bProcesses = (b as any).processes || [];
+
+          // Get primary process name for sorting
+          const getProcessName = (processes: any[]): string => {
+            if (processes.length === 0) return "zzz_Unassigned Processes";
+            if (processes.length === 1) return processes[0].name;
+            return "zzz_Multiple Processes";
+          };
+
+          const aName = getProcessName(aProcesses);
+          const bName = getProcessName(bProcesses);
+
+          // Sort alphabetically, with "Multiple Processes" and "Unassigned Processes" at the end
+          return aName.localeCompare(bName);
+        });
+      });
+    }
+
     return grouped;
-  }, [cards]);
+  }, [filteredCards, groupByProcess]);
 
   // Debounced save effect - only active in edit mode
   useEffect(() => {
@@ -214,7 +254,7 @@ export function KanbanBoard({
     const { active } = event;
 
     // Check if we're dragging a card
-    const card = cards.find((c) => c.id === active.id);
+    const card = filteredCards.find((c) => c.id === active.id);
     if (card) {
       setActiveCard(card);
     }
@@ -229,7 +269,7 @@ export function KanbanBoard({
     if (!over) return;
 
     // Check if we're dragging a card or a column
-    const isCard = cards.some((card) => card.id === active.id);
+    const isCard = filteredCards.some((card) => card.id === active.id);
     const isColumn = columns.some((col) => col.id === active.id);
 
     if (isCard) {
@@ -238,7 +278,7 @@ export function KanbanBoard({
       let targetColumnId = over.id as string;
 
       // Check if the card is being moved to a different column
-      const card = cards.find((c) => c.id === cardId);
+      const card = filteredCards.find((c) => c.id === cardId);
       if (card && card.column_id !== targetColumnId) {
         moveCardMutation.mutate({ cardId, columnId: targetColumnId });
       }
@@ -274,7 +314,7 @@ export function KanbanBoard({
     setColumns((prev) => prev.filter((col) => col.id !== id));
   }, []);
 
-  // Empty state
+  // Empty state - show when no columns
   if (columns.length === 0) {
     return (
       <div className="flex h-full flex-col">
@@ -286,7 +326,7 @@ export function KanbanBoard({
               <span>0 columns</span>
             </div>
             <Badge variant="secondary" className="text-xs tabular-nums">
-              {cards.length} cards
+              {filteredCards.length} cards
             </Badge>
           </div>
         </div>

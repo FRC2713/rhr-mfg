@@ -11,14 +11,29 @@ import {
 import { Button } from "~/components/ui/button";
 import type { KanbanConfig } from "~/api/kanban/config/route";
 import { KanbanBoardControls } from "~/components/mfg/kanban/board/KanbanBoardControls";
+import { useOnshapeClient } from "~/lib/onshapeApi/useOnshapeClient";
+import { sessionInfoOptions } from "~/lib/onshapeApi/generated/@tanstack/react-query.gen";
 
 export function MfgKanbanClient() {
   const queryClient = useQueryClient();
   const [isEditMode, setIsEditMode] = useState(false);
   const [hideImages, setHideImages] = useState(false);
+  const [groupByProcess, setGroupByProcess] = useState(false);
+  const [showOnlyMyCards, setShowOnlyMyCards] = useState(false);
   const [originalConfig, setOriginalConfig] = useState<KanbanConfig | null>(
     null
   );
+
+  // Get Onshape client
+  const onshapeClient = useOnshapeClient();
+
+  // Fetch current user
+  const { data: sessionInfo } = useQuery({
+    ...sessionInfoOptions({ client: onshapeClient }),
+    enabled: !!onshapeClient,
+  });
+
+  const currentUserId = sessionInfo?.id || null;
 
   // Fetch Kanban config
   const { data: config, isLoading } = useQuery<KanbanConfig>({
@@ -105,6 +120,14 @@ export function MfgKanbanClient() {
     setHideImages(!hideImages);
   };
 
+  const handleGroupByProcessChange = (value: boolean) => {
+    setGroupByProcess(value);
+  };
+
+  const handleShowOnlyMyCardsChange = (value: boolean) => {
+    setShowOnlyMyCards(value);
+  };
+
   return (
     <main className="bg-background flex h-full flex-1 flex-col overflow-hidden">
       {/* Page Header */}
@@ -130,6 +153,10 @@ export function MfgKanbanClient() {
               isSaving={saveConfigMutation.isPending}
               onHideImages={handleHideImages}
               hideImages={hideImages}
+              groupByProcess={groupByProcess}
+              showOnlyMyCards={showOnlyMyCards}
+              onGroupByProcessChange={handleGroupByProcessChange}
+              onShowOnlyMyCardsChange={handleShowOnlyMyCardsChange}
             />
           </div>
         </div>
@@ -145,6 +172,9 @@ export function MfgKanbanClient() {
             onConfigChange={handleConfigChange}
             isEditMode={isEditMode}
             hideImages={hideImages}
+            groupByProcess={groupByProcess}
+            showOnlyMyCards={showOnlyMyCards}
+            currentUserId={currentUserId}
           />
         ) : (
           <div className="flex h-full items-center justify-center">
