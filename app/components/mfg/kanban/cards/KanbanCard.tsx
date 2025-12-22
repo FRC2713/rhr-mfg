@@ -7,7 +7,11 @@ import { toast } from "sonner";
 import { Card, CardContent } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Sheet, SheetTrigger } from "~/components/ui/sheet";
-import type { KanbanCardRow, UserRow } from "~/lib/supabase/database.types";
+import type {
+  KanbanCardRow,
+  UserRow,
+  ProcessRow,
+} from "~/lib/supabase/database.types";
 import { KanbanCardHeader } from "./KanbanCardHeader";
 import { KanbanCardDetails } from "./KanbanCardDetails";
 
@@ -86,7 +90,7 @@ async function deleteCardRequest(cardId: string): Promise<unknown> {
 }
 
 interface KanbanCardProps {
-  card: KanbanCardRow;
+  card: KanbanCardRow & { processes?: ProcessRow[] };
   hideImages?: boolean;
 }
 
@@ -158,7 +162,11 @@ export function KanbanCard({ card, hideImages = false }: KanbanCardProps) {
   };
 
   const hasMeta =
-    card.assignee || card.material || card.machine || card.due_date;
+    card.assignee ||
+    card.material ||
+    card.machine ||
+    card.due_date ||
+    (card.processes && card.processes.length > 0);
 
   const assignedUser = useQuery<UserRow>({
     queryKey: ["users", card.assignee],
@@ -247,6 +255,17 @@ export function KanbanCard({ card, hideImages = false }: KanbanCardProps) {
                       </Badge>
                     );
                   })()}
+                {card.processes &&
+                  card.processes.length > 0 &&
+                  card.processes.map((process) => (
+                    <Badge
+                      key={process.id}
+                      variant="secondary"
+                      className="gap-1 bg-purple-500/10 text-xs font-normal text-purple-700 dark:text-purple-400"
+                    >
+                      {process.name}
+                    </Badge>
+                  ))}
               </CardContent>
             )}
           </div>

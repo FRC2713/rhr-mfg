@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import {
@@ -15,6 +16,7 @@ import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import type { KanbanCardRow } from "~/lib/supabase/database.types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import { PartDueDate } from "./PartDueDate";
+import { AddCardDialog, type AddCardFormData } from "./AddCardDialog";
 
 import type { PartsPageSearchParams } from "~/onshape_connector/page";
 
@@ -36,6 +38,7 @@ export function PartMfgState({
 }: PartMfgStateProps) {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [result, setResult] = useState<{
     success?: boolean;
     error?: string;
@@ -73,20 +76,35 @@ export function PartMfgState({
     ? columns.find((col) => col.id === matchingCard.column_id)
     : null;
 
-  const handleAddCard = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleAddCard = async (formData: AddCardFormData) => {
     setIsSubmitting(true);
     setResult(null);
+    setDialogOpen(false);
 
-    const formData = new FormData();
-    formData.append("action", "addCard");
-    formData.append("partNumber", part.partNumber || "");
+    const submitFormData = new FormData();
+    submitFormData.append("action", "addCard");
+    submitFormData.append("partNumber", part.partNumber || "");
+    
+    // Add process IDs
+    formData.processIds.forEach((processId) => {
+      submitFormData.append("processIds", processId);
+    });
+    
+    // Add quantities
+    submitFormData.append("quantityPerRobot", String(formData.quantityPerRobot));
+    submitFormData.append("quantityToMake", String(formData.quantityToMake));
+    
+    // Add due date if provided
+    if (formData.dueDate) {
+      submitFormData.append("dueDate", format(formData.dueDate, "yyyy-MM-dd"));
+    }
+    
     if (queryParams.documentId) {
-      formData.append("documentId", queryParams.documentId);
-      formData.append("instanceType", queryParams.instanceType);
-      formData.append("instanceId", queryParams.instanceId || "");
-      formData.append("elementId", queryParams.elementId || "");
-      formData.append("partId", part.partId || part.id || "");
+      submitFormData.append("documentId", queryParams.documentId);
+      submitFormData.append("instanceType", queryParams.instanceType);
+      submitFormData.append("instanceId", queryParams.instanceId || "");
+      submitFormData.append("elementId", queryParams.elementId || "");
+      submitFormData.append("partId", part.partId || part.id || "");
     }
 
     // Extract raw thumbnail URL (same strategy as PartCardThumbnail)
@@ -95,13 +113,13 @@ export function PartMfgState({
       part.thumbnailInfo?.sizes?.[0]?.href ||
       part.thumbnailInfo?.sizes?.find((s) => s.size === "600x340")?.href;
     if (rawThumbnailUrl) {
-      formData.append("rawThumbnailUrl", rawThumbnailUrl);
+      submitFormData.append("rawThumbnailUrl", rawThumbnailUrl);
     }
 
     try {
       const response = await fetch("/api/mfg/parts/actions", {
         method: "POST",
-        body: formData,
+        body: submitFormData,
       });
       const data = await response.json();
       setResult(data);
@@ -112,21 +130,26 @@ export function PartMfgState({
     }
   };
 
-  // If card not found, show "Add to manufacturing tracker" button
+  // If card not found, show "Add to manufacturing tracker" button with dialog
   if (!matchingCard) {
     return (
       <div className="space-y-2">
-        <form onSubmit={handleAddCard}>
-          <Button
-            type="submit"
-            size="sm"
-            variant="outline"
-            className="w-full"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Adding..." : "Add to manufacturing tracker"}
-          </Button>
-        </form>
+        <AddCardDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onSubmit={handleAddCard}
+          isSubmitting={isSubmitting}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="w-full"
+          disabled={isSubmitting}
+          onClick={() => setDialogOpen(true)}
+        >
+          Add to manufacturing tracker
+        </Button>
         {result && !result.success && result.error && (
           <p className="text-destructive text-xs">{result.error}</p>
         )}

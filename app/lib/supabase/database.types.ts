@@ -40,6 +40,8 @@ export interface Database {
           due_date: string | null;
           content: string | null;
           created_by: string | null;
+          quantity_per_robot: number | null;
+          quantity_to_make: number | null;
         };
         Insert: {
           id: string;
@@ -54,6 +56,8 @@ export interface Database {
           due_date?: string | null;
           content?: string | null;
           created_by?: string | null;
+          quantity_per_robot?: number | null;
+          quantity_to_make?: number | null;
         };
         Update: {
           id?: string;
@@ -68,6 +72,8 @@ export interface Database {
           due_date?: string | null;
           content?: string | null;
           created_by?: string | null;
+          quantity_per_robot?: number | null;
+          quantity_to_make?: number | null;
         };
         Relationships: [];
       };

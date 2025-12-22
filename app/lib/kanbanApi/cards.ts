@@ -95,6 +95,8 @@ export interface CreateCardInput {
   dueDate?: string;
   content?: string;
   processIds?: string[];
+  quantityPerRobot?: number;
+  quantityToMake?: number;
   id?: string;
   createdBy?: string;
 }
@@ -131,6 +133,8 @@ export async function createCard(
       due_date: cardData.dueDate ?? null,
       content: cardData.content ?? null,
       created_by: cardData.createdBy ?? null,
+      quantity_per_robot: cardData.quantityPerRobot ?? null,
+      quantity_to_make: cardData.quantityToMake ?? null,
     })
     .select()
     .single();

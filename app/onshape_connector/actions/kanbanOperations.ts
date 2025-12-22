@@ -28,6 +28,18 @@ const addCardSchema = z.object({
   elementId: z.string().optional(),
   partId: z.string().optional(),
   rawThumbnailUrl: z.string().optional(),
+  processIds: z.array(z.string()).min(1, "At least one process is required"),
+  quantityPerRobot: z
+    .string()
+    .min(1, "Quantity per robot is required")
+    .transform((val) => Number(val))
+    .pipe(z.number().positive("Quantity per robot must be greater than 0")),
+  quantityToMake: z
+    .string()
+    .min(1, "Quantity to make is required")
+    .transform((val) => Number(val))
+    .pipe(z.number().positive("Quantity to make must be greater than 0")),
+  dueDate: z.string().optional(),
 });
 
 /**
@@ -60,14 +72,22 @@ function getStringValue(formData: FormData, key: string): string | undefined {
 
 /**
  * Parse FormData into an object for Zod validation
+ * Handles arrays for keys that should be collected as arrays
  */
 function formDataToObject(
   formData: FormData,
-  keys: string[]
-): Record<string, string | undefined> {
-  const obj: Record<string, string | undefined> = {};
+  keys: string[],
+  arrayKeys: string[] = []
+): Record<string, string | string[] | undefined> {
+  const obj: Record<string, string | string[] | undefined> = {};
   for (const key of keys) {
-    obj[key] = getStringValue(formData, key);
+    if (arrayKeys.includes(key)) {
+      // Collect all values for array keys
+      const values = formData.getAll(key);
+      obj[key] = values.length > 0 ? (values as string[]) : undefined;
+    } else {
+      obj[key] = getStringValue(formData, key);
+    }
   }
   return obj;
 }
@@ -120,17 +140,43 @@ export async function handleAddKanbanCard(
   request: NextRequest
 ): Promise<ActionResponse> {
   // Parse and validate form data
-  const rawData = formDataToObject(formData, [
-    "partNumber",
-    "documentId",
-    "instanceType",
-    "instanceId",
-    "elementId",
-    "partId",
-    "rawThumbnailUrl",
-  ]);
+  const rawData = formDataToObject(
+    formData,
+    [
+      "partNumber",
+      "documentId",
+      "instanceType",
+      "instanceId",
+      "elementId",
+      "partId",
+      "rawThumbnailUrl",
+      "processIds",
+      "quantityPerRobot",
+      "quantityToMake",
+      "dueDate",
+    ],
+    ["processIds"]
+  );
 
-  const parseResult = addCardSchema.safeParse(rawData);
+  // Convert processIds array to proper format for schema
+  const processedData = {
+    ...rawData,
+    processIds: Array.isArray(rawData.processIds)
+      ? rawData.processIds
+      : rawData.processIds
+        ? [rawData.processIds]
+        : [],
+    quantityPerRobot:
+      typeof rawData.quantityPerRobot === "string"
+        ? rawData.quantityPerRobot
+        : "",
+    quantityToMake:
+      typeof rawData.quantityToMake === "string"
+        ? rawData.quantityToMake
+        : "",
+  };
+
+  const parseResult = addCardSchema.safeParse(processedData);
   if (!parseResult.success) {
     const errorMessage = parseResult.error.issues
       .map((issue) => issue.message)
@@ -159,6 +205,10 @@ export async function handleAddKanbanCard(
       material: "TBD",
       machine: "TBD",
       createdBy,
+      processIds: data.processIds,
+      quantityPerRobot: data.quantityPerRobot,
+      quantityToMake: data.quantityToMake,
+      dueDate: data.dueDate,
     });
 
     return { success: true, data: card };
