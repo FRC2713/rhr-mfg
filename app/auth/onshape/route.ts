@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { getAuthorizationUrl } from "~/lib/onshapeApi/auth";
-import { getOnshapeToken, setOAuthState } from "~/lib/onshapeAuth";
+import { getOnshapeToken, setOAuthState, setOAuthRedirect } from "~/lib/onshapeAuth";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -36,7 +36,11 @@ export async function GET(request: Request) {
   const accessToken = await getOnshapeToken();
   console.log("[AUTH ONSHAPE] Already authenticated:", !!accessToken);
   if (accessToken) {
-    const redirectUrl = new URL(redirectTo, url.origin);
+    // Prevent redirect loops - don't redirect to auth routes
+    const safeRedirect = redirectTo.startsWith("/auth/") || redirectTo.startsWith("/signin") 
+      ? "/" 
+      : redirectTo;
+    const redirectUrl = new URL(safeRedirect, url.origin);
     console.log(
       "[AUTH ONSHAPE] Redirecting authenticated user to:",
       redirectUrl.toString()
@@ -64,6 +68,10 @@ export async function GET(request: Request) {
   if (!clientId) {
     throw new Error("Missing ONSHAPE_CLIENT_ID environment variable");
   }
+
+  // Store the redirect destination before starting OAuth
+  await setOAuthRedirect(redirectTo);
+  console.log("[AUTH ONSHAPE] Stored redirect destination:", redirectTo);
 
   // Generate state for CSRF protection
   const state = randomBytes(32).toString("hex");

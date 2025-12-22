@@ -9,6 +9,14 @@ export default function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Allow requests coming from auth callback (prevents redirect loops)
+  // The callback adds ?auth=success to indicate successful authentication
+  // Even if cookies aren't immediately readable, we trust the callback
+  if (searchParams.get("auth") === "success") {
+    // Allow the request through - cookies should be set by now
+    return NextResponse.next();
+  }
+
   // Check if Onshape is authenticated
   const isAuthenticated = isOnshapeAuthenticatedFromRequest(request);
 

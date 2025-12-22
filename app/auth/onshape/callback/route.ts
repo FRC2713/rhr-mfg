@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { exchangeCodeForToken, onshapeApiRequest } from "~/lib/onshapeApi/auth";
 import {
+  clearOAuthRedirect,
   clearOAuthState,
   clearOnshapeTokens,
+  getOAuthRedirect,
   getOAuthState,
   setOnshapeTokens,
 } from "~/lib/onshapeAuth";
@@ -86,6 +88,7 @@ export async function GET(request: Request) {
       // Cookie was lost - clear everything and redirect to auth start
       await clearOnshapeTokens();
       await clearOAuthState();
+      await clearOAuthRedirect();
       return redirect("/auth/onshape");
     }
 
@@ -154,6 +157,14 @@ export async function GET(request: Request) {
     await clearOAuthState();
     console.log("[AUTH CALLBACK] OAuth state cleared");
 
+    // Get the original redirect destination
+    const originalRedirect = await getOAuthRedirect();
+    await clearOAuthRedirect();
+    console.log(
+      "[AUTH CALLBACK] Original redirect destination:",
+      originalRedirect || "(none)"
+    );
+
     // Fetch user info from Onshape API and save to database
     try {
       console.log("[AUTH CALLBACK] Fetching user info from Onshape API...");
@@ -206,10 +217,16 @@ export async function GET(request: Request) {
       );
     }
 
-    // Redirect to home page after successful authentication
-    // The original redirect parameter is lost during OAuth flow, so we default to home
-    const redirectTo = "/";
-    const redirectUrl = new URL(redirectTo, url.origin);
+    // Redirect to original destination or home page after successful authentication
+    // Add a query parameter to indicate we just authenticated (helps prevent redirect loops)
+    const redirectTo = originalRedirect || "/";
+    // Prevent redirect loops - don't redirect to auth routes
+    const safeRedirect =
+      redirectTo.startsWith("/auth/") || redirectTo.startsWith("/signin")
+        ? "/"
+        : redirectTo;
+    const redirectUrl = new URL(safeRedirect, url.origin);
+    redirectUrl.searchParams.set("auth", "success");
     console.log("[AUTH CALLBACK] Redirecting to:", redirectUrl.toString());
     console.log("[AUTH CALLBACK] ===== Callback Complete =====");
 
@@ -218,6 +235,7 @@ export async function GET(request: Request) {
     console.error("[AUTH CALLBACK] Token exchange error:", error);
     await clearOnshapeTokens();
     await clearOAuthState();
+    await clearOAuthRedirect();
     return redirect(
       "/?error=" + encodeURIComponent("Failed to exchange authorization code")
     );

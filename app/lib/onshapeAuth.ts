@@ -14,6 +14,7 @@ const COOKIE_NAMES = {
   REFRESH_TOKEN: "onshape_refresh_token",
   EXPIRES_AT: "onshape_expires_at",
   OAUTH_STATE: "onshape_oauth_state",
+  OAUTH_REDIRECT: "onshape_oauth_redirect",
 } as const;
 
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -112,6 +113,33 @@ export async function setOAuthState(state: string): Promise<void> {
 export async function clearOAuthState(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAMES.OAUTH_STATE);
+}
+
+/**
+ * Get OAuth redirect destination from cookie
+ */
+export async function getOAuthRedirect(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get(COOKIE_NAMES.OAUTH_REDIRECT)?.value || null;
+}
+
+/**
+ * Set OAuth redirect destination in cookie
+ * @server-only - This function modifies cookies and can only be called from Server Actions or Route Handlers
+ */
+export async function setOAuthRedirect(redirect: string): Promise<void> {
+  const cookieStore = await cookies();
+  const options = getOAuthStateCookieOptions(); // Use same options as OAuth state
+  cookieStore.set(COOKIE_NAMES.OAUTH_REDIRECT, redirect, options);
+}
+
+/**
+ * Clear OAuth redirect cookie
+ * @server-only - This function modifies cookies and can only be called from Server Actions or Route Handlers
+ */
+export async function clearOAuthRedirect(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE_NAMES.OAUTH_REDIRECT);
 }
 
 /**
