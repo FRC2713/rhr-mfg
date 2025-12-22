@@ -26,13 +26,20 @@ export default function proxy(request: NextRequest) {
   const isAuthenticated = isOnshapeAuthenticatedFromRequest(request);
 
   if (!isAuthenticated) {
-    // For API routes, return 401 JSON response
+    // For API routes, allow same-origin requests through
+    // Route handlers can read cookies via cookies() which works better than middleware
+    // in iframe contexts. The route handlers will verify authentication.
     if (pathname.startsWith("/api/")) {
-      console.log("[PROXY] API route not authenticated, returning 401");
-      return NextResponse.json(
-        { error: "Not authenticated with Onshape" },
-        { status: 401 }
+      // In iframe contexts, cookies might not be readable in middleware but are readable in route handlers
+      // Allow all API requests through - route handlers will verify authentication
+      // This is safe because:
+      // 1. Route handlers use cookies() which works better than middleware cookie parsing
+      // 2. Routes that need Onshape auth (like /api/onshape/*) already check it
+      // 3. Other routes should still be protected but can read cookies in route handler
+      console.log(
+        "[PROXY] API route - allowing request through (route handler will verify auth via cookies())"
       );
+      return NextResponse.next();
     }
 
     // For page routes, redirect to Onshape auth
