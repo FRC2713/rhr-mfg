@@ -52,7 +52,6 @@ export async function POST(request: NextRequest) {
       title: body.title,
       imageUrl: body.imageUrl,
       assignee: body.assignee,
-      material: body.material,
       machine: body.machine,
       dueDate: body.dueDate,
       content: body.content,

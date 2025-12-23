@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Calendar, User, Wrench, Box } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Calendar, User, Wrench, Package } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { Card, CardContent } from "~/components/ui/card";
@@ -93,9 +93,14 @@ async function deleteCardRequest(cardId: string): Promise<unknown> {
 interface KanbanCardProps {
   card: KanbanCardRow & { processes?: ProcessRow[] };
   hideImages?: boolean;
+  usersMap: Map<string, UserRow>;
 }
 
-export function KanbanCard({ card, hideImages = false }: KanbanCardProps) {
+export const KanbanCard = memo(function KanbanCard({
+  card,
+  hideImages = false,
+  usersMap,
+}: KanbanCardProps) {
   const [imageError, setImageError] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -164,18 +169,13 @@ export function KanbanCard({ card, hideImages = false }: KanbanCardProps) {
 
   const hasMeta =
     card.assignee ||
-    card.material ||
     card.machine ||
     card.due_date ||
+    card.quantity_to_make ||
     (card.processes && card.processes.length > 0);
 
-  const assignedUser = useQuery<UserRow>({
-    queryKey: ["users", card.assignee],
-    queryFn: async () => {
-      const response = await fetch(`/api/users/${card.assignee}`);
-      return response.json();
-    },
-  });
+  // Get user from map instead of individual query
+  const assignedUser = card.assignee ? usersMap.get(card.assignee) : undefined;
 
   return (
     <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -225,16 +225,7 @@ export function KanbanCard({ card, hideImages = false }: KanbanCardProps) {
                     className="bg-primary/5 gap-1 text-xs font-normal"
                   >
                     <User className="size-3" />
-                    {assignedUser.data?.name || "??"}
-                  </Badge>
-                )}
-                {card.material && (
-                  <Badge
-                    variant="secondary"
-                    className="gap-1 bg-amber-500/10 text-xs font-normal text-amber-700 dark:text-amber-400"
-                  >
-                    <Box className="size-3" />
-                    {card.material}
+                    {assignedUser?.name || "??"}
                   </Badge>
                 )}
                 {card.machine && (
@@ -244,6 +235,15 @@ export function KanbanCard({ card, hideImages = false }: KanbanCardProps) {
                   >
                     <Wrench className="size-3" />
                     {card.machine}
+                  </Badge>
+                )}
+                {card.quantity_to_make && (
+                  <Badge
+                    variant="secondary"
+                    className="gap-1 bg-green-500/10 text-xs font-normal text-green-700 dark:text-green-400"
+                  >
+                    <Package className="size-3" />
+                    Qty: {card.quantity_to_make}
                   </Badge>
                 )}
                 {card.due_date &&
@@ -281,7 +281,8 @@ export function KanbanCard({ card, hideImages = false }: KanbanCardProps) {
         imageUrl={imageUrl}
         deleteCardMutation={deleteCardMutation}
         onDelete={handleDelete}
+        usersMap={usersMap}
       />
     </Sheet>
   );
-}
+});

@@ -35,13 +35,17 @@ export interface Database {
           assignee: string | null;
           date_created: string;
           date_updated: string;
-          material: string | null;
           machine: string | null;
           due_date: string | null;
           content: string | null;
           created_by: string | null;
           quantity_per_robot: number | null;
           quantity_to_make: number | null;
+          onshape_document_id: string | null;
+          onshape_instance_type: string | null;
+          onshape_instance_id: string | null;
+          onshape_element_id: string | null;
+          onshape_part_id: string | null;
         };
         Insert: {
           id: string;
@@ -51,13 +55,17 @@ export interface Database {
           assignee?: string | null;
           date_created: string;
           date_updated: string;
-          material?: string | null;
           machine?: string | null;
           due_date?: string | null;
           content?: string | null;
           created_by?: string | null;
           quantity_per_robot?: number | null;
           quantity_to_make?: number | null;
+          onshape_document_id?: string | null;
+          onshape_instance_type?: string | null;
+          onshape_instance_id?: string | null;
+          onshape_element_id?: string | null;
+          onshape_part_id?: string | null;
         };
         Update: {
           id?: string;
@@ -74,6 +82,11 @@ export interface Database {
           created_by?: string | null;
           quantity_per_robot?: number | null;
           quantity_to_make?: number | null;
+          onshape_document_id?: string | null;
+          onshape_instance_type?: string | null;
+          onshape_instance_id?: string | null;
+          onshape_element_id?: string | null;
+          onshape_part_id?: string | null;
         };
         Relationships: [];
       };

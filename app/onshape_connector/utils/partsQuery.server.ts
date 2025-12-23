@@ -38,5 +38,26 @@ export async function fetchPartsFromOnshape(
       includePropertyDefaults: true,
     },
   });
+
+  // Check for errors in the response
+  if ((response as any).error) {
+    const errorMessage = (response as any).error;
+
+    // Check if it's an authentication error
+    if (
+      typeof errorMessage === "string" &&
+      errorMessage.includes("invalid_token")
+    ) {
+      throw new Error("Not authenticated with Onshape. Please sign in again.");
+    }
+
+    throw new Error(`Onshape API error: ${errorMessage}`);
+  }
+
+  // Check if response.data exists
+  if (!response.data) {
+    throw new Error("Onshape API returned no data");
+  }
+
   return response.data || [];
 }

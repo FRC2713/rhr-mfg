@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useCallback, useMemo } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
   closestCenter,
@@ -27,7 +27,12 @@ import type {
   KanbanConfig,
   KanbanColumn as KanbanColumnType,
 } from "~/api/kanban/config/route";
-import type { KanbanCardRow } from "~/lib/supabase/database.types";
+import type { KanbanCardRow, UserRow } from "~/lib/supabase/database.types";
+import {
+  useKanbanCards,
+  useUsers,
+  kanbanQueryKeys,
+} from "~/lib/kanbanApi/queries";
 
 interface KanbanBoardProps {
   config: KanbanConfig;
@@ -36,6 +41,10 @@ interface KanbanBoardProps {
   hideImages?: boolean;
   groupByProcess?: boolean;
   sortByUser?: boolean;
+  onAddColumn?: () => void;
+  onRenameColumn?: (id: string, newTitle: string) => void;
+  onDeleteColumn?: (id: string) => void;
+  onReorderColumns?: (newColumns: KanbanColumnType[]) => void;
 }
 
 export function KanbanBoard({
@@ -45,12 +54,16 @@ export function KanbanBoard({
   hideImages = false,
   groupByProcess = false,
   sortByUser = false,
+  onAddColumn,
+  onRenameColumn,
+  onDeleteColumn,
+  onReorderColumns,
 }: KanbanBoardProps) {
-  const [columns, setColumns] = useState<KanbanColumnType[]>(config.columns);
-  const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
   const [activeCard, setActiveCard] = useState<KanbanCardRow | null>(null);
   const queryClient = useQueryClient();
-  const lastSyncedConfigRef = useRef<string>(JSON.stringify(config.columns));
+  
+  // Use columns directly from config
+  const columns = config.columns;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -63,32 +76,20 @@ export function KanbanBoard({
     })
   );
 
-  // Fetch cards
-  const { data: cardsData, isLoading: isLoadingCards } = useQuery<{
-    cards: KanbanCardRow[];
-  }>({
-    queryKey: ["kanban-cards"],
-    queryFn: async () => {
-      const response = await fetch("/api/kanban/cards");
-      if (!response.ok) {
-        throw new Error("Failed to fetch cards");
-      }
-      return response.json();
-    },
-    staleTime: 30 * 1000, // Cache for 30 seconds
-  });
+  // Fetch cards and users
+  const { data: cardsData, isLoading: isLoadingCards } = useKanbanCards();
+  const { data: users = [] } = useUsers();
 
   const cards = cardsData?.cards || [];
 
-  // Sync columns with config when config changes (e.g., on cancel)
-  // Only sync if the config actually changed from an external source
-  useEffect(() => {
-    const configString = JSON.stringify(config.columns);
-    if (configString !== lastSyncedConfigRef.current) {
-      setColumns(config.columns);
-      lastSyncedConfigRef.current = configString;
-    }
-  }, [config.columns]);
+  // Create user lookup map for O(1) access
+  const usersMap = useMemo(() => {
+    const map = new Map<string, UserRow>();
+    users.forEach((user) => {
+      map.set(user.onshape_user_id, user);
+    });
+    return map;
+  }, [users]);
 
   // Mutation to update card column
   const moveCardMutation = useMutation({
@@ -129,20 +130,23 @@ export function KanbanBoard({
     },
     onMutate: async ({ cardId, columnId }) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["kanban-cards"] });
+      await queryClient.cancelQueries({ queryKey: kanbanQueryKeys.cards() });
 
       // Snapshot previous value
       const previousCards = queryClient.getQueryData<{
         cards: KanbanCardRow[];
-      }>(["kanban-cards"]);
+      }>(kanbanQueryKeys.cards());
 
       // Optimistically update
       if (previousCards) {
-        queryClient.setQueryData<{ cards: KanbanCardRow[] }>(["kanban-cards"], {
-          cards: previousCards.cards.map((card) =>
-            card.id === cardId ? { ...card, columnId } : card
-          ),
-        });
+        queryClient.setQueryData<{ cards: KanbanCardRow[] }>(
+          kanbanQueryKeys.cards(),
+          {
+            cards: previousCards.cards.map((card) =>
+              card.id === cardId ? { ...card, column_id: columnId } : card
+            ),
+          }
+        );
       }
 
       return { previousCards };
@@ -150,7 +154,10 @@ export function KanbanBoard({
     onError: (error, variables, context) => {
       // Rollback on error
       if (context?.previousCards) {
-        queryClient.setQueryData(["kanban-cards"], context.previousCards);
+        queryClient.setQueryData(
+          kanbanQueryKeys.cards(),
+          context.previousCards
+        );
       }
       toast.error("Failed to move card", {
         description: error instanceof Error ? error.message : "Unknown error",
@@ -158,7 +165,7 @@ export function KanbanBoard({
     },
     onSettled: () => {
       // Refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ["kanban-cards"] });
+      queryClient.invalidateQueries({ queryKey: kanbanQueryKeys.cards() });
     },
   });
 
@@ -220,45 +227,6 @@ export function KanbanBoard({
     return grouped;
   }, [cards, groupByProcess, sortByUser]);
 
-  // Debounced save effect - only active in edit mode
-  useEffect(() => {
-    if (!isEditMode) {
-      // Clear any pending timeout when exiting edit mode
-      if (saveTimeout) {
-        clearTimeout(saveTimeout);
-        setSaveTimeout(null);
-      }
-      return;
-    }
-
-    // Clear existing timeout
-    if (saveTimeout) {
-      clearTimeout(saveTimeout);
-    }
-
-    // Set new timeout for auto-save (only updates local state in edit mode)
-    const timeout = setTimeout(() => {
-      const updatedConfig: KanbanConfig = {
-        ...config,
-        columns: columns.map((col, index) => ({
-          ...col,
-          position: index,
-        })),
-      };
-      // Update ref to prevent unnecessary sync when config prop updates
-      lastSyncedConfigRef.current = JSON.stringify(updatedConfig.columns);
-      onConfigChange(updatedConfig);
-    }, 300);
-
-    setSaveTimeout(timeout);
-
-    // Cleanup
-    return () => {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-    };
-  }, [columns, isEditMode, config, onConfigChange]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -294,35 +262,38 @@ export function KanbanBoard({
       }
     } else if (isColumn) {
       // Handle column drag (reordering columns) - only in edit mode
-      if (isEditMode && active.id !== over.id) {
-        setColumns((items) => {
-          const oldIndex = items.findIndex((item) => item.id === active.id);
-          const newIndex = items.findIndex((item) => item.id === over.id);
-
-          return arrayMove(items, oldIndex, newIndex);
-        });
+      if (isEditMode && active.id !== over.id && onReorderColumns) {
+        const oldIndex = columns.findIndex((item) => item.id === active.id);
+        const newIndex = columns.findIndex((item) => item.id === over.id);
+        const reorderedColumns = arrayMove(columns, oldIndex, newIndex);
+        onReorderColumns(reorderedColumns);
       }
     }
   };
 
   const handleAddColumn = useCallback(() => {
-    const newColumn: KanbanColumnType = {
-      id: `column-${Date.now()}`,
-      title: "New Column",
-      position: columns.length,
-    };
-    setColumns([...columns, newColumn]);
-  }, [columns]);
+    if (onAddColumn) {
+      onAddColumn();
+    }
+  }, [onAddColumn]);
 
-  const handleRenameColumn = useCallback((id: string, newTitle: string) => {
-    setColumns((prev) =>
-      prev.map((col) => (col.id === id ? { ...col, title: newTitle } : col))
-    );
-  }, []);
+  const handleRenameColumn = useCallback(
+    (id: string, newTitle: string) => {
+      if (onRenameColumn) {
+        onRenameColumn(id, newTitle);
+      }
+    },
+    [onRenameColumn]
+  );
 
-  const handleDeleteColumn = useCallback((id: string) => {
-    setColumns((prev) => prev.filter((col) => col.id !== id));
-  }, []);
+  const handleDeleteColumn = useCallback(
+    (id: string) => {
+      if (onDeleteColumn) {
+        onDeleteColumn(id);
+      }
+    },
+    [onDeleteColumn]
+  );
 
   // Empty state - show when no columns
   if (columns.length === 0) {
@@ -393,6 +364,7 @@ export function KanbanBoard({
               isEditMode={isEditMode}
               isDraggingCard={activeCard !== null}
               hideImages={hideImages}
+              usersMap={usersMap}
             />
           ))}
 
@@ -412,7 +384,7 @@ export function KanbanBoard({
       <DragOverlay dropAnimation={null}>
         {activeCard ? (
           <div className="rotate-3 opacity-95" style={{ width: "300px" }}>
-            <KanbanCardComponent card={activeCard} />
+            <KanbanCardComponent card={activeCard} usersMap={usersMap} />
           </div>
         ) : null}
       </DragOverlay>

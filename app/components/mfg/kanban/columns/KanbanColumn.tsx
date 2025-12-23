@@ -22,7 +22,7 @@ import {
 import { KanbanColumnHeader } from "./KanbanColumnHeader";
 import { Badge } from "~/components/ui/badge";
 import type { KanbanColumn as KanbanColumnType } from "~/api/kanban/config/route";
-import type { KanbanCardRow } from "~/lib/supabase/database.types";
+import type { KanbanCardRow, UserRow } from "~/lib/supabase/database.types";
 import { KanbanColumnCardContainer } from "./KanbanColumnCardContainer";
 
 interface KanbanColumnProps {
@@ -33,6 +33,7 @@ interface KanbanColumnProps {
   isEditMode?: boolean;
   isDraggingCard?: boolean;
   hideImages?: boolean;
+  usersMap: Map<string, UserRow>;
 }
 
 export function KanbanColumn({
@@ -43,6 +44,7 @@ export function KanbanColumn({
   isEditMode = false,
   isDraggingCard = false,
   hideImages = false,
+  usersMap,
 }: KanbanColumnProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -159,6 +161,7 @@ export function KanbanColumn({
           cards={cards}
           isDraggingCard={isDraggingCard}
           hideImages={hideImages}
+          usersMap={usersMap}
         />
       </div>
 

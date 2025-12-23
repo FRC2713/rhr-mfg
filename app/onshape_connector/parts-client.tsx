@@ -1,21 +1,27 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo, useEffect } from "react";
-import Fuse from "fuse.js";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
-import { Box } from "lucide-react";
+import { Box, AlertCircle } from "lucide-react";
 import { PartCardSkeleton } from "~/components/mfg/PartCardSkeleton";
 import { PartCard } from "~/components/mfg/PartCard";
 import { ErrorDisplay } from "~/components/mfg/ErrorDisplay";
-import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { KanbanCardRow } from "~/lib/supabase/database.types";
-import type { KanbanColumn } from "~/api/kanban/config/route";
-import { PartsPageSearchParams } from "./page";
-import { getPartsQueryOptions, getPartsQueryKey } from "./utils/partsQuery";
 import { OnshapeConnectorToolbar } from "./OnshapeConnectorToolbar";
 import { Separator } from "~/components/ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
+import { Button } from "~/components/ui/button";
+import { useState } from "react";
+import { usePartsData } from "./hooks/usePartsData";
+import { usePartsSearch } from "./hooks/usePartsSearch";
+import {
+  usePartsSort,
+  type SortBy,
+  type SortDirection,
+} from "./hooks/usePartsSort";
+import { getPartsQueryKey } from "./utils/partsQuery";
+import { kanbanQueryKeys } from "~/lib/kanbanApi/queries";
+import type { PartsPageSearchParams } from "./page";
 
 interface MfgPartsClientProps {
   queryParams: PartsPageSearchParams;
@@ -23,222 +29,64 @@ interface MfgPartsClientProps {
   exampleUrl: string | null | undefined;
 }
 
+//example url: http://localhost:3000/onshape_connector?elementType=PARTSTUDIO&documentId=6fcef187b1ff2c7d43932486&instanceType=w&instanceId=0330c62599ec344c4a9b77a5&elementId=21aa6247faa0fb5954a76f5b
+
 export function MfgPartsClient({
   queryParams,
   error: validationError,
   exampleUrl,
 }: MfgPartsClientProps) {
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<
-    | "none"
-    | "name"
-    | "partNumber"
-    | "material"
-    | "mfgState"
-    | "createdAt"
-    | "updatedAt"
-  >("name");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [sortBy, setSortBy] = useState<SortBy>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  // Debounce search query to avoid recalculating on every keystroke
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300); // 300ms delay
+  // Fetch all data using unified hook
+  const {
+    parts,
+    cardByPartNumber,
+    columnById,
+    isLoading,
+    isError,
+    error,
+    partsError,
+    cardsError,
+    columnsError,
+  } = usePartsData({ queryParams });
 
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  // Search functionality
+  const { searchQuery, setSearchQuery, filteredParts, isSearching } =
+    usePartsSearch({ parts });
 
-  // Fetch Kanban data client-side
-  const kanbanCardsQuery = useQuery<{ cards: KanbanCardRow[] }>({
-    queryKey: ["kanban-cards"],
-    queryFn: async () => {
-      const response = await fetch("/api/kanban/cards");
-      if (!response.ok) throw new Error("Failed to fetch cards");
-      return response.json();
-    },
-    staleTime: 30 * 1000,
+  // Sort functionality
+  const sortedParts = usePartsSort({
+    parts: filteredParts,
+    sortBy,
+    sortDirection,
+    cardByPartNumber,
+    columnById,
   });
-
-  const kanbanColumnsQuery = useQuery<KanbanColumn[]>({
-    queryKey: ["kanban-columns"],
-    queryFn: async () => {
-      const response = await fetch("/api/kanban/config/columns");
-      if (!response.ok) throw new Error("Failed to fetch columns");
-      return response.json();
-    },
-    staleTime: 60 * 1000,
-  });
-
-  const kanbanCards = kanbanCardsQuery.data?.cards || [];
-  const partsQuery = useQuery<BtPartMetadataInfo[]>(
-    getPartsQueryOptions(queryParams)
-  );
-
-  // Create lookup maps for O(1) access instead of O(n) .find() operations
-  const cardByPartNumber = useMemo(() => {
-    const map = new Map<string, KanbanCardRow>();
-    kanbanCards.forEach((card) => {
-      if (card.title) {
-        map.set(card.title, card);
-      }
-    });
-    return map;
-  }, [kanbanCards]);
-
-  const columnById = useMemo(() => {
-    const map = new Map<string, KanbanColumn>();
-    kanbanColumnsQuery.data?.forEach((col) => {
-      map.set(col.id, col);
-    });
-    return map;
-  }, [kanbanColumnsQuery.data]);
-
-  // Configure Fuse.js for fuzzy search - only create when needed
-  const fuse = useMemo(() => {
-    if (partsQuery.data?.length === 0) return null;
-    return new Fuse(partsQuery.data || [], {
-      keys: ["name", "partNumber"],
-      threshold: 0.4, // Lower = more strict, higher = more fuzzy
-      ignoreLocation: true, // Search anywhere in the string
-      minMatchCharLength: 1,
-    });
-  }, [partsQuery.data]);
-
-  // Filter parts based on search query (using debounced value)
-  const filteredParts = useMemo(() => {
-    if (!debouncedSearchQuery.trim() || !fuse) {
-      return partsQuery.data || [];
-    }
-    return fuse.search(debouncedSearchQuery).map((result) => result.item);
-  }, [partsQuery.data, fuse, debouncedSearchQuery]);
-
-  // Sort filtered parts
-  const sortedParts = useMemo(() => {
-    if (sortBy === "none") {
-      return filteredParts;
-    }
-
-    const partsToSort = [...filteredParts];
-    const directionMultiplier = sortDirection === "asc" ? 1 : -1;
-
-    switch (sortBy) {
-      case "name":
-        return partsToSort.sort((a, b) => {
-          const nameA = (a.name || "").toLowerCase();
-          const nameB = (b.name || "").toLowerCase();
-          return nameA.localeCompare(nameB) * directionMultiplier;
-        });
-
-      case "partNumber":
-        return partsToSort.sort((a, b) => {
-          const numA = (a.partNumber || "").toLowerCase();
-          const numB = (b.partNumber || "").toLowerCase();
-          return numA.localeCompare(numB) * directionMultiplier;
-        });
-
-      case "material":
-        return partsToSort.sort((a, b) => {
-          const materialA = (a.material?.displayName || "").toLowerCase();
-          const materialB = (b.material?.displayName || "").toLowerCase();
-          // Parts without material go to the end
-          if (!materialA && !materialB) return 0;
-          if (!materialA) return 1;
-          if (!materialB) return -1;
-          return materialA.localeCompare(materialB) * directionMultiplier;
-        });
-
-      case "mfgState": {
-        // Sort by manufacturing state (column position) - using lookup maps for O(1) access
-        return partsToSort.sort((a, b) => {
-          const cardA = a.partNumber
-            ? cardByPartNumber.get(a.partNumber)
-            : undefined;
-          const cardB = b.partNumber
-            ? cardByPartNumber.get(b.partNumber)
-            : undefined;
-
-          if (!cardA && !cardB) return 0;
-          if (!cardA) return 1; // Parts without cards go to the end
-          if (!cardB) return -1;
-
-          const columnA = cardA.column_id
-            ? columnById.get(cardA.column_id)
-            : undefined;
-          const columnB = cardB.column_id
-            ? columnById.get(cardB.column_id)
-            : undefined;
-
-          const positionA = columnA?.position ?? Number.MAX_SAFE_INTEGER;
-          const positionB = columnB?.position ?? Number.MAX_SAFE_INTEGER;
-
-          return (positionA - positionB) * directionMultiplier;
-        });
-      }
-
-      case "createdAt": {
-        // Sort by card creation date - using lookup map for O(1) access
-        return partsToSort.sort((a, b) => {
-          const cardA = a.partNumber
-            ? cardByPartNumber.get(a.partNumber)
-            : undefined;
-          const cardB = b.partNumber
-            ? cardByPartNumber.get(b.partNumber)
-            : undefined;
-
-          if (!cardA && !cardB) return 0;
-          if (!cardA) return 1; // Parts without cards go to the end
-          if (!cardB) return -1;
-
-          const dateA = new Date(cardA.date_created).getTime();
-          const dateB = new Date(cardB.date_created).getTime();
-
-          // Base sort: newest first (dateB - dateA), then apply direction
-          return (dateB - dateA) * directionMultiplier;
-        });
-      }
-
-      case "updatedAt": {
-        // Sort by card last updated date - using lookup map for O(1) access
-        return partsToSort.sort((a, b) => {
-          const cardA = a.partNumber
-            ? cardByPartNumber.get(a.partNumber)
-            : undefined;
-          const cardB = b.partNumber
-            ? cardByPartNumber.get(b.partNumber)
-            : undefined;
-
-          if (!cardA && !cardB) return 0;
-          if (!cardA) return 1; // Parts without cards go to the end
-          if (!cardB) return -1;
-
-          const dateA = new Date(cardA.date_updated).getTime();
-          const dateB = new Date(cardB.date_updated).getTime();
-
-          // Base sort: most recently updated first (dateB - dateA), then apply direction
-          return (dateB - dateA) * directionMultiplier;
-        });
-      }
-
-      default:
-        return partsToSort;
-    }
-  }, [filteredParts, sortBy, sortDirection, cardByPartNumber, columnById]);
-
-  const error =
-    validationError || (partsQuery.error ? String(partsQuery.error) : null);
 
   const handleRefresh = () => {
     // Invalidate all relevant queries to trigger refetch
-    queryClient.invalidateQueries({ queryKey: ["kanban-cards"] });
-    queryClient.invalidateQueries({ queryKey: ["kanban-columns"] });
+    queryClient.invalidateQueries({ queryKey: kanbanQueryKeys.cards() });
+    queryClient.invalidateQueries({ queryKey: kanbanQueryKeys.columns() });
     queryClient.invalidateQueries({ queryKey: getPartsQueryKey(queryParams) });
   };
 
+  // Determine if we should show loading state
+  const showLoading = isLoading && queryParams?.documentId;
+
+  // Combine all errors
+  const displayError =
+    validationError ||
+    (partsError ? String(partsError.message) : null) ||
+    (cardsError
+      ? `Failed to load kanban cards: ${cardsError.message}`
+      : null) ||
+    (columnsError ? `Failed to load columns: ${columnsError.message}` : null);
+
   // Show loading screen while data is being fetched
-  if (partsQuery.isFetching && queryParams?.documentId) {
+  if (showLoading) {
     return (
       <main className="container mx-auto px-4 py-8">
         <div className="mx-auto max-w-6xl space-y-6">
@@ -269,13 +117,39 @@ export function MfgPartsClient({
   return (
     <main className="container mx-auto px-4 py-8">
       <div className="mx-auto flex max-w-6xl flex-col gap-2">
-        {/* Error Message */}
-        {error && (
-          <ErrorDisplay error={error} exampleUrl={exampleUrl || undefined} />
+        {/* Error Messages */}
+        {displayError && (
+          <ErrorDisplay
+            error={displayError}
+            exampleUrl={exampleUrl || undefined}
+          />
+        )}
+
+        {/* Partial error states - show data even if some queries failed */}
+        {(cardsError || columnsError) && !partsError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Partial data loaded</AlertTitle>
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                {cardsError && "Kanban cards failed to load. "}
+                {columnsError && "Columns failed to load. "}
+                Parts data is available, but some features may be limited.
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                className="ml-4"
+              >
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Search and Sort Controls */}
-        {partsQuery.data && !error && (
+        {parts && !displayError && (
           <OnshapeConnectorToolbar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -284,18 +158,17 @@ export function MfgPartsClient({
             sortDirection={sortDirection}
             onSortDirectionChange={setSortDirection}
             onRefresh={handleRefresh}
-            isFetching={
-              kanbanCardsQuery.isFetching ||
-              kanbanColumnsQuery.isFetching ||
-              partsQuery.isFetching
-            }
+            isFetching={isLoading}
+            resultCount={sortedParts.length}
+            totalCount={parts.length}
+            isSearching={isSearching}
           />
         )}
 
         <Separator />
 
         {/* Parts List */}
-        {partsQuery.data && partsQuery.data.length === 0 && !error && (
+        {parts && parts.length === 0 && !displayError && (
           <Card>
             <CardContent className="pt-6">
               <p className="text-muted-foreground text-center">
@@ -305,21 +178,31 @@ export function MfgPartsClient({
           </Card>
         )}
 
-        {partsQuery.data && partsQuery.data.length > 0 && queryParams && (
+        {parts && parts.length > 0 && queryParams && (
           <div>
             {sortedParts.length === 0 ? (
               <Card>
                 <CardContent className="pt-6">
-                  <p className="text-muted-foreground text-center">
-                    No parts match your search query.
-                  </p>
+                  <div className="space-y-2 text-center">
+                    <p className="text-muted-foreground">
+                      No parts match your search query.
+                    </p>
+                    {searchQuery && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSearchQuery("")}
+                      >
+                        Clear search
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {sortedParts.map((part) => {
                   // Generate a stable key - prefer partId, fallback to id, then partIdentity
-                  // Avoid JSON.stringify as it's expensive
                   const partKey =
                     part.partId ||
                     part.id ||

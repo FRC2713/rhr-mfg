@@ -1,16 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useCallback } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { KanbanSquare, Settings2, Edit, Save, X } from "lucide-react";
 import {
   KanbanBoard,
   KanbanBoardSkeleton,
 } from "~/components/mfg/kanban/board/KanbanBoard";
+import { KanbanBoardErrorBoundary } from "~/components/mfg/kanban/board/KanbanBoardErrorBoundary";
 import { Button } from "~/components/ui/button";
-import type { KanbanConfig } from "~/api/kanban/config/route";
+import type {
+  KanbanConfig,
+  KanbanColumn,
+} from "~/api/kanban/config/route";
 import { KanbanBoardControls } from "~/components/mfg/kanban/board/KanbanBoardControls";
+import { useKanbanConfig, kanbanQueryKeys } from "~/lib/kanbanApi/queries";
 
 export function MfgKanbanClient() {
   const queryClient = useQueryClient();
@@ -23,19 +28,9 @@ export function MfgKanbanClient() {
   );
 
   // Fetch Kanban config
-  const { data: config, isLoading } = useQuery<KanbanConfig>({
-    queryKey: ["kanban-config"],
-    queryFn: async () => {
-      const response = await fetch("/api/kanban/config");
-      if (!response.ok) {
-        throw new Error("Failed to fetch Kanban config");
-      }
-      return response.json();
-    },
-    staleTime: 60 * 1000, // Cache for 1 minute
-  });
+  const { data: config, isLoading } = useKanbanConfig();
 
-  // Save config mutation
+  // Save config mutation with optimistic updates
   const saveConfigMutation = useMutation({
     mutationFn: async (newConfig: KanbanConfig) => {
       const response = await fetch("/api/kanban/config", {
@@ -53,12 +48,33 @@ export function MfgKanbanClient() {
 
       return response.json();
     },
+    onMutate: async (newConfig) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: kanbanQueryKeys.config() });
+
+      // Snapshot previous value
+      const previousConfig = queryClient.getQueryData<KanbanConfig>(
+        kanbanQueryKeys.config()
+      );
+
+      // Optimistically update
+      queryClient.setQueryData(kanbanQueryKeys.config(), newConfig);
+
+      return { previousConfig };
+    },
     onSuccess: (data) => {
-      // Update the cache with the new config
-      queryClient.setQueryData(["kanban-config"], data.config);
+      // Update the cache with the server response
+      queryClient.setQueryData(kanbanQueryKeys.config(), data.config);
       toast.success("Configuration saved");
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // Rollback on error
+      if (context?.previousConfig) {
+        queryClient.setQueryData(
+          kanbanQueryKeys.config(),
+          context.previousConfig
+        );
+      }
       toast.error("Failed to save configuration", {
         description:
           error instanceof Error ? error.message : "Unknown error occurred",
@@ -70,7 +86,7 @@ export function MfgKanbanClient() {
     // Only update local state when in edit mode
     // Actual save happens when user clicks Save button
     if (isEditMode) {
-      queryClient.setQueryData(["kanban-config"], newConfig);
+      queryClient.setQueryData(kanbanQueryKeys.config(), newConfig);
     }
   };
 
@@ -97,7 +113,7 @@ export function MfgKanbanClient() {
   const handleCancel = () => {
     if (originalConfig) {
       // Revert to original config
-      queryClient.setQueryData(["kanban-config"], originalConfig);
+      queryClient.setQueryData(kanbanQueryKeys.config(), originalConfig);
       setIsEditMode(false);
       setOriginalConfig(null);
     }
@@ -114,6 +130,66 @@ export function MfgKanbanClient() {
   const handleSortByUserChange = (value: boolean) => {
     setSortByUser(value);
   };
+
+  // Column operation handlers
+  const handleAddColumn = useCallback(() => {
+    if (config) {
+      const newColumn: KanbanColumn = {
+        id: `column-${Date.now()}`,
+        title: "New Column",
+        position: config.columns.length,
+      };
+      const updatedConfig: KanbanConfig = {
+        ...config,
+        columns: [...config.columns, newColumn],
+      };
+      queryClient.setQueryData(kanbanQueryKeys.config(), updatedConfig);
+    }
+  }, [config, queryClient]);
+
+  const handleRenameColumn = useCallback(
+    (id: string, newTitle: string) => {
+      if (config) {
+        const updatedConfig: KanbanConfig = {
+          ...config,
+          columns: config.columns.map((col) =>
+            col.id === id ? { ...col, title: newTitle } : col
+          ),
+        };
+        queryClient.setQueryData(kanbanQueryKeys.config(), updatedConfig);
+      }
+    },
+    [config, queryClient]
+  );
+
+  const handleDeleteColumn = useCallback(
+    (id: string) => {
+      if (config) {
+        const updatedConfig: KanbanConfig = {
+          ...config,
+          columns: config.columns.filter((col) => col.id !== id),
+        };
+        queryClient.setQueryData(kanbanQueryKeys.config(), updatedConfig);
+      }
+    },
+    [config, queryClient]
+  );
+
+  const handleReorderColumns = useCallback(
+    (newColumns: KanbanColumn[]) => {
+      if (config) {
+        const updatedConfig: KanbanConfig = {
+          ...config,
+          columns: newColumns.map((col, index) => ({
+            ...col,
+            position: index,
+          })),
+        };
+        queryClient.setQueryData(kanbanQueryKeys.config(), updatedConfig);
+      }
+    },
+    [config, queryClient]
+  );
 
   return (
     <main className="bg-background flex h-full flex-1 flex-col overflow-hidden">
@@ -151,26 +227,32 @@ export function MfgKanbanClient() {
 
       {/* Board Content */}
       <div className="flex-1 overflow-hidden">
-        {isLoading ? (
-          <KanbanBoardSkeleton />
-        ) : config ? (
-          <KanbanBoard
-            config={config}
-            onConfigChange={handleConfigChange}
-            isEditMode={isEditMode}
-            hideImages={hideImages}
-            groupByProcess={groupByProcess}
-            sortByUser={sortByUser}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-center">
-              <p className="text-muted-foreground">
-                Failed to load configuration
-              </p>
+        <KanbanBoardErrorBoundary>
+          {isLoading ? (
+            <KanbanBoardSkeleton />
+          ) : config ? (
+            <KanbanBoard
+              config={config}
+              onConfigChange={handleConfigChange}
+              isEditMode={isEditMode}
+              hideImages={hideImages}
+              groupByProcess={groupByProcess}
+              sortByUser={sortByUser}
+              onAddColumn={isEditMode ? handleAddColumn : undefined}
+              onRenameColumn={isEditMode ? handleRenameColumn : undefined}
+              onDeleteColumn={isEditMode ? handleDeleteColumn : undefined}
+              onReorderColumns={isEditMode ? handleReorderColumns : undefined}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <p className="text-muted-foreground">
+                  Failed to load configuration
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </KanbanBoardErrorBoundary>
       </div>
     </main>
   );

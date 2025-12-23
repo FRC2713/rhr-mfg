@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Wrench } from "lucide-react";
-import { Button } from "~/components/ui/button";
+import { Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -71,15 +70,10 @@ export function MachineSelectDialog({ card }: MachineSelectDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <div className="hover:bg-primary/10 flex cursor-pointer items-center gap-3 rounded-md p-2">
-          <div className="bg-blue-500/10 flex size-8 items-center justify-center rounded-full">
-            <Wrench className="text-blue-600 size-4" />
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">Machine</p>
-            <p className="font-medium">{card.machine || "Unassigned"}</p>
-          </div>
-        </div>
+        <button className="group flex items-center gap-2 rounded-md px-2 py-1 text-left text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground">
+          <span>{card.machine || "Unassigned"}</span>
+          <Pencil className="size-3 opacity-0 transition-opacity group-hover:opacity-50" />
+        </button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

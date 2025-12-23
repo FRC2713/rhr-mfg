@@ -202,13 +202,17 @@ export async function handleAddKanbanCard(
       title: data.partNumber,
       imageUrl,
       assignee: "Unassigned",
-      material: "TBD",
       machine: "TBD",
       createdBy,
       processIds: data.processIds,
       quantityPerRobot: data.quantityPerRobot,
       quantityToMake: data.quantityToMake,
       dueDate: data.dueDate,
+      onshapeDocumentId: data.documentId,
+      onshapeInstanceType: data.instanceType,
+      onshapeInstanceId: data.instanceId,
+      onshapeElementId: data.elementId,
+      onshapePartId: data.partId,
     });
 
     return { success: true, data: card };

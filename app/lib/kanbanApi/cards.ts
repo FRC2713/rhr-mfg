@@ -90,7 +90,6 @@ export interface CreateCardInput {
   title: string;
   imageUrl?: string;
   assignee?: string;
-  material?: string;
   machine?: string;
   dueDate?: string;
   content?: string;
@@ -99,6 +98,11 @@ export interface CreateCardInput {
   quantityToMake?: number;
   id?: string;
   createdBy?: string;
+  onshapeDocumentId?: string;
+  onshapeInstanceType?: string;
+  onshapeInstanceId?: string;
+  onshapeElementId?: string;
+  onshapePartId?: string;
 }
 
 /**
@@ -128,13 +132,17 @@ export async function createCard(
       assignee: cardData.assignee ?? null,
       date_created: now,
       date_updated: now,
-      material: cardData.material ?? null,
       machine: cardData.machine ?? null,
       due_date: cardData.dueDate ?? null,
       content: cardData.content ?? null,
       created_by: cardData.createdBy ?? null,
       quantity_per_robot: cardData.quantityPerRobot ?? null,
       quantity_to_make: cardData.quantityToMake ?? null,
+      onshape_document_id: cardData.onshapeDocumentId ?? null,
+      onshape_instance_type: cardData.onshapeInstanceType ?? null,
+      onshape_instance_id: cardData.onshapeInstanceId ?? null,
+      onshape_element_id: cardData.onshapeElementId ?? null,
+      onshape_part_id: cardData.onshapePartId ?? null,
     })
     .select()
     .single();

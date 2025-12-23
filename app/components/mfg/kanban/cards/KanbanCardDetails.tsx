@@ -7,6 +7,7 @@ import {
   Wrench,
   Box,
   ExternalLink,
+  Hash,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
@@ -33,6 +34,7 @@ import type {
   UserRow,
   ProcessRow,
 } from "~/lib/supabase/database.types";
+import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import { Badge } from "~/components/ui/badge";
 import type { UseMutationResult } from "@tanstack/react-query";
 import { AssignCardDialog } from "./AssignCardDialog";
@@ -55,16 +57,22 @@ function formatDate(dateString: string): string {
 }
 
 /**
- * Format relative time (e.g., "2 days ago", "in 3 days")
+ * Calculate days difference from now
+ * Returns null if date is invalid
  */
-function formatRelativeTime(dateString: string): string {
+function getDaysDifference(dateString: string): number | null {
   const date = new Date(dateString);
-  if (isNaN(date.getTime())) return "";
-
+  if (isNaN(date.getTime())) return null;
   const now = new Date();
   const diffMs = date.getTime() - now.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}
 
+/**
+ * Format relative time (e.g., "2 days ago", "in 3 days")
+ */
+function formatRelativeTime(diffDays: number | null): string {
+  if (diffDays === null) return "";
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Tomorrow";
   if (diffDays === -1) return "Yesterday";
@@ -75,17 +83,11 @@ function formatRelativeTime(dateString: string): string {
 /**
  * Get due date urgency info
  */
-function getDueDateUrgency(dateString: string): {
+function getDueDateUrgency(diffDays: number | null): {
   variant: "destructive" | "secondary" | "outline";
   className?: string;
 } {
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return { variant: "secondary" };
-
-  const now = new Date();
-  const diffMs = date.getTime() - now.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
+  if (diffDays === null) return { variant: "secondary" };
   if (diffDays < 0) return { variant: "destructive" }; // Overdue
   if (diffDays <= 2)
     return {
@@ -97,68 +99,15 @@ function getDueDateUrgency(dateString: string): {
 }
 
 /**
- * Extract Onshape properties from image URL
- * Returns null if the URL doesn't contain Onshape data
+ * Construct Onshape document URL from card's database fields
  */
-function extractOnshapeProperties(imageUrl?: string): {
-  documentId: string;
-  instanceType: string;
-  instanceId: string;
-  elementId: string;
-} | null {
-  if (!imageUrl) return null;
-
-  try {
-    // Check if it's our proxy format: /api/onshape/thumbnail?url=...
-    if (imageUrl.startsWith("/api/onshape/thumbnail")) {
-      // Parse query parameters manually or use URLSearchParams
-      const queryString = imageUrl.includes("?") ? imageUrl.split("?")[1] : "";
-      const params = new URLSearchParams(queryString);
-      const originalUrl = params.get("url");
-      if (!originalUrl) return null;
-
-      // Decode the URL if it's encoded
-      const decodedUrl = decodeURIComponent(originalUrl);
-
-      // Parse the Onshape thumbnail URL
-      // Format: https://cad.onshape.com/api/v10/thumbnails/d/{documentId}/{wvm}/{instanceId}/e/{elementId}/p/{partId}?...
-      const thumbnailMatch = decodedUrl.match(
-        /\/api\/v10\/thumbnails\/d\/([^\/]+)\/([wvm])\/([^\/]+)\/e\/([^\/]+)/
-      );
-      if (thumbnailMatch) {
-        const [, documentId, instanceType, instanceId, elementId] =
-          thumbnailMatch;
-        return { documentId, instanceType, instanceId, elementId };
-      }
-    }
-
-    // Check if it's a direct Onshape thumbnail URL
-    const directMatch = imageUrl.match(
-      /\/api\/v10\/thumbnails\/d\/([^\/]+)\/([wvm])\/([^\/]+)\/e\/([^\/]+)/
-    );
-    if (directMatch) {
-      const [, documentId, instanceType, instanceId, elementId] = directMatch;
-      return { documentId, instanceType, instanceId, elementId };
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Construct Onshape document URL from properties
- */
-function buildOnshapeDocumentUrl(properties: {
-  documentId: string;
-  instanceType: string;
-  instanceId: string;
-  elementId: string;
-}): string {
-  const { documentId, instanceType, instanceId, elementId } = properties;
+function buildOnshapeDocumentUrl(
+  documentId: string,
+  instanceType: string,
+  instanceId: string,
+  elementId: string
+): string {
   // Onshape document URLs use 'w' for workspace, 'v' for version, 'm' for microversion
-  // We'll use the instanceType from the thumbnail URL
   const wvm = instanceType === "w" ? "w" : instanceType === "v" ? "v" : "m";
   return `https://cad.onshape.com/documents/${documentId}/${wvm}/${instanceId}/e/${elementId}`;
 }
@@ -168,6 +117,7 @@ interface KanbanCardDetailsProps {
   imageUrl?: string;
   deleteCardMutation: UseMutationResult<unknown, Error, string, unknown>;
   onDelete: () => void;
+  usersMap: Map<string, UserRow>;
 }
 
 export function KanbanCardDetails({
@@ -175,39 +125,123 @@ export function KanbanCardDetails({
   imageUrl,
   deleteCardMutation,
   onDelete,
+  usersMap,
 }: KanbanCardDetailsProps) {
   const [imageError, setImageError] = useState(false);
 
-  // Extract Onshape properties from image URL
-  const onshapeProperties = useMemo(
-    () => extractOnshapeProperties(imageUrl),
-    [imageUrl]
-  );
+  // Check if card has Onshape properties from database
+  const hasOnshapeProperties = useMemo(() => {
+    return !!(
+      card.onshape_document_id &&
+      card.onshape_instance_type &&
+      card.onshape_instance_id &&
+      card.onshape_element_id
+    );
+  }, [
+    card.onshape_document_id,
+    card.onshape_instance_type,
+    card.onshape_instance_id,
+    card.onshape_element_id,
+  ]);
 
   // Build Onshape document URL if properties are available
   const onshapeUrl = useMemo(() => {
-    if (!onshapeProperties) return null;
-    return buildOnshapeDocumentUrl(onshapeProperties);
-  }, [onshapeProperties]);
+    if (!hasOnshapeProperties) return null;
+    return buildOnshapeDocumentUrl(
+      card.onshape_document_id!,
+      card.onshape_instance_type!,
+      card.onshape_instance_id!,
+      card.onshape_element_id!
+    );
+  }, [
+    hasOnshapeProperties,
+    card.onshape_document_id,
+    card.onshape_instance_type,
+    card.onshape_instance_id,
+    card.onshape_element_id,
+  ]);
 
-  const hasMeta =
-    card.assignee ||
-    card.material ||
-    card.machine ||
-    card.due_date ||
-    (card.processes && card.processes.length > 0);
+  // Memoize hasMeta to avoid recalculating on every render
+  const hasMeta = useMemo(
+    () =>
+      !!(
+        card.assignee ||
+        card.machine ||
+        card.due_date ||
+        card.quantity_per_robot ||
+        card.quantity_to_make ||
+        (card.processes && card.processes.length > 0)
+      ),
+    [
+      card.assignee,
+      card.machine,
+      card.due_date,
+      card.quantity_per_robot,
+      card.quantity_to_make,
+      card.processes,
+    ]
+  );
 
-  // Fetch creator name if created_by is set
-  const creatorQuery = useQuery<UserRow>({
-    queryKey: ["users", card.created_by],
+  // Get creator from map instead of individual query
+  const creator = card.created_by ? usersMap.get(card.created_by) : undefined;
+
+  // Fetch parts from Onshape API to get material
+  // Cache for 30 seconds to reduce API calls
+  const partsQuery = useQuery<BtPartMetadataInfo[]>({
+    queryKey: [
+      "onshape-parts",
+      card.onshape_document_id,
+      card.onshape_instance_type,
+      card.onshape_instance_id,
+      card.onshape_element_id,
+    ],
     queryFn: async () => {
-      if (!card.created_by) throw new Error("No creator ID");
-      const response = await fetch(`/api/users/${card.created_by}`);
-      if (!response.ok) throw new Error("Failed to fetch creator");
+      if (!hasOnshapeProperties) throw new Error("No Onshape properties");
+      const params = new URLSearchParams({
+        documentId: card.onshape_document_id!,
+        instanceType: card.onshape_instance_type!,
+        instanceId: card.onshape_instance_id!,
+        elementId: card.onshape_element_id!,
+      });
+      const response = await fetch(`/api/onshape/parts?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch parts");
+      }
       return response.json();
     },
-    enabled: !!card.created_by,
+    enabled: hasOnshapeProperties,
+    staleTime: 30 * 1000, // Cache for 30 seconds
+    retry: 1, // Retry once on failure
   });
+
+  // Pre-normalize card title to avoid repeated string operations
+  const normalizedCardTitle = useMemo(
+    () => card.title?.trim().toLowerCase() ?? null,
+    [card.title]
+  );
+
+  // Find the matching part by part number (case-insensitive, trimmed)
+  const matchingPart = useMemo(() => {
+    if (!partsQuery.data || !normalizedCardTitle) return null;
+    return (
+      partsQuery.data.find(
+        (part) => part.partNumber?.trim().toLowerCase() === normalizedCardTitle
+      ) || null
+    );
+  }, [partsQuery.data, normalizedCardTitle]);
+
+  // Calculate due date difference once to avoid duplicate Date calculations
+  const dueDateDiffDays = useMemo(
+    () => (card.due_date ? getDaysDifference(card.due_date) : null),
+    [card.due_date]
+  );
+
+  // Memoize due date urgency calculation
+  const dueDateUrgency = useMemo(
+    () =>
+      dueDateDiffDays !== null ? getDueDateUrgency(dueDateDiffDays) : null,
+    [dueDateDiffDays]
+  );
 
   return (
     <SheetContent className="flex w-full flex-col sm:max-w-lg">
@@ -216,15 +250,14 @@ export function KanbanCardDetails({
         <SheetDescription className="flex items-center gap-2">
           <Clock className="size-3" />
           Created {formatDate(card.date_created)}
-          {card.created_by &&
-            ` by ${creatorQuery.data?.name || card.created_by}`}
+          {card.created_by && ` by ${creator?.name || card.created_by}`}
         </SheetDescription>
       </SheetHeader>
 
       <div className="mt-6 flex-1 space-y-6 overflow-y-auto px-4">
         {/* Image Section */}
         {imageUrl && !imageError && (
-          <div className="bg-muted/50 overflow-hidden rounded-lg border">
+          <div className="overflow-hidden">
             <div className="relative w-full" style={{ height: "300px" }}>
               <Image
                 src={imageUrl}
@@ -252,110 +285,191 @@ export function KanbanCardDetails({
           </div>
         )}
 
-        {/* Details Grid */}
+        {/* Details Table */}
         {hasMeta && (
           <div className="space-y-2">
             <h4 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
               Details
             </h4>
-            <div className="bg-card grid gap-3 rounded-lg border p-4">
-              <AssignCardDialog card={card} />
-
-              {card.material && (
-                <div className="flex items-center gap-3">
-                  <div className="flex size-8 items-center justify-center rounded-full bg-amber-500/10">
-                    <Box className="size-4 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs">Material</p>
-                    <p className="font-medium">{card.material}</p>
-                  </div>
-                </div>
-              )}
-
-              <MachineSelectDialog card={card} />
-
-              {card.processes && card.processes.length > 0 && (
-                <div className="flex items-center gap-3">
-                  <div className="flex size-8 items-center justify-center rounded-full bg-blue-500/10">
-                    <Wrench className="size-4 text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-muted-foreground mb-1 text-xs">
-                      Required Processes
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {card.processes.map((process) => (
-                        <Badge
-                          key={process.id}
-                          variant="secondary"
-                          className="text-xs"
-                        >
-                          {process.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {card.due_date &&
-                (() => {
-                  const urgency = getDueDateUrgency(card.due_date);
-                  const isOverdue = urgency.variant === "destructive";
-                  const isSoon = urgency.className !== undefined;
-                  return (
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex size-8 items-center justify-center rounded-full ${
-                          isOverdue
-                            ? "bg-destructive/10"
-                            : isSoon
-                              ? "bg-amber-500/10"
-                              : "bg-muted"
-                        }`}
-                      >
-                        <Calendar
-                          className={`size-4 ${
-                            isOverdue
-                              ? "text-destructive"
-                              : isSoon
-                                ? "text-amber-600"
-                                : "text-muted-foreground"
-                          }`}
-                        />
+            <div className="bg-card overflow-hidden rounded-lg border">
+              <table className="w-full">
+                <tbody className="divide-y">
+                  {/* Assignee */}
+                  <tr>
+                    <td className="text-muted-foreground w-1/3 px-4 py-3 text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-primary/10 flex size-6 items-center justify-center rounded-full">
+                          <User className="text-primary size-3.5" />
+                        </div>
+                        <span>Assignee</span>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">
-                          Due Date
-                        </p>
-                        <p className="font-medium">
+                    </td>
+                    <td className="px-4 py-3">
+                      <AssignCardDialog card={card} />
+                    </td>
+                  </tr>
+
+                  {/* Material */}
+                  {hasOnshapeProperties && (
+                    <tr>
+                      <td className="text-muted-foreground px-4 py-3 text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <div className="flex size-6 items-center justify-center rounded-full bg-amber-500/10">
+                            <Box className="size-3.5 text-amber-600" />
+                          </div>
+                          <span>Material</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {partsQuery.isLoading ? (
+                          <span className="text-muted-foreground text-sm">
+                            Loading...
+                          </span>
+                        ) : partsQuery.isError ? (
+                          <span className="text-muted-foreground text-sm">
+                            Unable to load
+                          </span>
+                        ) : matchingPart ? (
+                          <span className="text-sm">
+                            {matchingPart.material?.displayName || "Not Set"}
+                          </span>
+                        ) : partsQuery.data && card.title ? (
+                          <span className="text-muted-foreground text-sm">
+                            Part not found
+                          </span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* Machine */}
+                  <tr>
+                    <td className="text-muted-foreground px-4 py-3 text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="flex size-6 items-center justify-center rounded-full bg-blue-500/10">
+                          <Wrench className="size-3.5 text-blue-600" />
+                        </div>
+                        <span>Machine</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <MachineSelectDialog card={card} />
+                    </td>
+                  </tr>
+
+                  {/* Quantity per Robot */}
+                  {card.quantity_per_robot && (
+                    <tr>
+                      <td className="text-muted-foreground px-4 py-3 text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <div className="flex size-6 items-center justify-center rounded-full bg-green-500/10">
+                            <Hash className="size-3.5 text-green-600" />
+                          </div>
+                          <span>Quantity per Robot</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm">
+                          {card.quantity_per_robot}
+                        </span>
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* Quantity to Make */}
+                  {card.quantity_to_make && (
+                    <tr>
+                      <td className="text-muted-foreground px-4 py-3 text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <div className="flex size-6 items-center justify-center rounded-full bg-green-500/10">
+                            <Hash className="size-3.5 text-green-600" />
+                          </div>
+                          <span>Quantity to Make</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm">{card.quantity_to_make}</span>
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* Required Processes */}
+                  {card.processes && card.processes.length > 0 && (
+                    <tr>
+                      <td className="text-muted-foreground px-4 py-3 align-top text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <div className="flex size-6 items-center justify-center rounded-full bg-blue-500/10">
+                            <Wrench className="size-3.5 text-blue-600" />
+                          </div>
+                          <span>Required Processes</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {card.processes.map((process) => (
+                            <Badge
+                              key={process.id}
+                              variant="secondary"
+                              className="text-xs"
+                            >
+                              {process.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* Due Date */}
+                  {card.due_date && dueDateUrgency && (
+                    <tr>
+                      <td className="text-muted-foreground px-4 py-3 text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`flex size-6 items-center justify-center rounded-full ${
+                              dueDateUrgency.variant === "destructive"
+                                ? "bg-destructive/10"
+                                : dueDateUrgency.className
+                                  ? "bg-amber-500/10"
+                                  : "bg-muted"
+                            }`}
+                          >
+                            <Calendar
+                              className={`size-3.5 ${
+                                dueDateUrgency.variant === "destructive"
+                                  ? "text-destructive"
+                                  : dueDateUrgency.className
+                                    ? "text-amber-600"
+                                    : "text-muted-foreground"
+                              }`}
+                            />
+                          </div>
+                          <span>Due Date</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`text-sm ${
+                            dueDateUrgency.variant === "destructive"
+                              ? "text-destructive"
+                              : dueDateUrgency.className
+                                ? "text-amber-600"
+                                : ""
+                          }`}
+                        >
                           {formatDate(card.due_date)}
                           <span className="text-muted-foreground ml-2 text-xs">
-                            ({formatRelativeTime(card.due_date)})
+                            ({formatRelativeTime(dueDateDiffDays)})
                           </span>
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })()}
+                        </span>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
-
-        {/* Timestamps */}
-        <div className="rounded-lg border border-dashed p-4">
-          <div className="text-muted-foreground flex items-center justify-between text-xs">
-            <span>Created</span>
-            <span>{formatDate(card.date_created)}</span>
-          </div>
-          {card.date_created !== card.date_updated && (
-            <div className="text-muted-foreground mt-2 flex items-center justify-between text-xs">
-              <span>Last updated</span>
-              <span>{formatDate(card.date_updated)}</span>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Actions - Sticky at bottom */}

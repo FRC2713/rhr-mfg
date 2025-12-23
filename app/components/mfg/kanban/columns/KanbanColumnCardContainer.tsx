@@ -1,5 +1,5 @@
 import { PlusCircle, SquareDashedKanban } from "lucide-react";
-import type { KanbanCardRow } from "~/lib/supabase/database.types";
+import type { KanbanCardRow, UserRow } from "~/lib/supabase/database.types";
 import { KanbanCard } from "../cards/KanbanCard";
 
 interface KanbanColumnCardContainerProps {
@@ -7,6 +7,7 @@ interface KanbanColumnCardContainerProps {
   cards: KanbanCardRow[];
   isDraggingCard?: boolean;
   hideImages?: boolean;
+  usersMap: Map<string, UserRow>;
 }
 
 export function KanbanColumnCardContainer({
@@ -14,6 +15,7 @@ export function KanbanColumnCardContainer({
   cards,
   isDraggingCard = false,
   hideImages = false,
+  usersMap,
 }: KanbanColumnCardContainerProps) {
   if (isDraggingCard) {
     return (
@@ -35,7 +37,12 @@ export function KanbanColumnCardContainer({
   return (
     <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2">
       {cards.map((card) => (
-        <KanbanCard key={card.id} card={card} hideImages={hideImages} />
+        <KanbanCard
+          key={card.id}
+          card={card}
+          hideImages={hideImages}
+          usersMap={usersMap}
+        />
       ))}
     </div>
   );

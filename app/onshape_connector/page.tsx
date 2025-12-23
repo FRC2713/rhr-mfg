@@ -7,6 +7,11 @@ import {
 } from "@tanstack/react-query";
 import { getPartsQueryKey } from "./utils/partsQuery";
 import { fetchPartsFromOnshape } from "./utils/partsQuery.server";
+import {
+  fetchKanbanCardsServer,
+  fetchKanbanColumnsServer,
+} from "~/lib/kanbanApi/queries.server";
+import { kanbanQueryKeys } from "~/lib/kanbanApi/queries";
 
 export const metadata: Metadata = {
   title: "MFG Parts - Onshape Integration",
@@ -61,6 +66,29 @@ export default async function MfgParts({
       }
       // Don't set query data on error - let client handle it
     }
+  }
+
+  // Prefetch kanban cards and columns for better initial load performance
+  try {
+    await queryClient.prefetchQuery({
+      queryKey: kanbanQueryKeys.cards(),
+      queryFn: fetchKanbanCardsServer,
+      staleTime: 30 * 1000, // Cache for 30 seconds
+    });
+  } catch (error) {
+    console.error("Error prefetching kanban cards:", error);
+    // Non-fatal - let client handle it
+  }
+
+  try {
+    await queryClient.prefetchQuery({
+      queryKey: kanbanQueryKeys.columns(),
+      queryFn: fetchKanbanColumnsServer,
+      staleTime: 60 * 1000, // Cache for 1 minute
+    });
+  } catch (error) {
+    console.error("Error prefetching kanban columns:", error);
+    // Non-fatal - let client handle it
   }
 
   return (
