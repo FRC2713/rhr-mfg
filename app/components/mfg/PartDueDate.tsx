@@ -22,7 +22,6 @@ interface PartDueDateProps {
   card: KanbanCardRow;
   part: BtPartMetadataInfo;
   queryParams: PartsPageSearchParams;
-  columns: KanbanColumn[];
 }
 
 /**

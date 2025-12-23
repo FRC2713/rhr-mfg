@@ -13,41 +13,30 @@ import type { PartsPageSearchParams } from "~/onshape_connector/page";
 import { PartCardThumbnail } from "./PartCardThumbnail";
 import { PartNumberInput } from "./PartNumberInput";
 import { PartMfgState } from "./PartMfgState";
-import { ManufacturingStateBadge } from "./ManufacturingStateBadge";
 
 interface PartCardProps {
   part: BtPartMetadataInfo;
   queryParams: PartsPageSearchParams;
-  cards: KanbanCardRow[];
-  columns: KanbanColumn[];
+  matchingCard?: KanbanCardRow;
+  currentColumn?: KanbanColumn;
 }
 
 /**
  * Component to display a single part with thumbnail error handling
  */
-export function PartCard({ part, queryParams, cards, columns }: PartCardProps) {
-  // Find matching card for this part (if it has a part number)
-  const matchingCard = part.partNumber
-    ? cards.find((card) => card.title === part.partNumber)
-    : null;
-
-  // Find current column if card exists
-  const currentColumn = matchingCard
-    ? columns.find((col) => col.id === matchingCard.column_id)
-    : null;
-
+export function PartCard({
+  part,
+  queryParams,
+  matchingCard,
+  currentColumn,
+}: PartCardProps) {
   return (
     <Card className="transition-shadow hover:shadow-lg">
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-row flex-wrap items-center gap-2">
-            <CardTitle className="text-lg">
-              {part.name || `Part ${part.partId || part.id || "Unknown"}`}
-            </CardTitle>
-            {currentColumn && (
-              <ManufacturingStateBadge column={currentColumn} />
-            )}
-          </div>
+          <CardTitle className="text-lg">
+            {part.name || `Part ${part.partId || part.id || "Unknown"}`}
+          </CardTitle>
           {part.isHidden && <Badge variant="secondary">Hidden</Badge>}
         </div>
         <CardDescription>
@@ -59,8 +48,8 @@ export function PartCard({ part, queryParams, cards, columns }: PartCardProps) {
         <PartMfgState
           part={part}
           queryParams={queryParams}
-          cards={cards}
-          columns={columns}
+          matchingCard={matchingCard}
+          currentColumn={currentColumn}
         />
       </CardContent>
     </Card>

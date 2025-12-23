@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Fuse from "fuse.js";
 import { Card, CardContent } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
@@ -37,10 +37,20 @@ export function MfgPartsClient({
   exampleUrl,
 }: MfgPartsClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<
     "none" | "name" | "partNumber" | "mfgState" | "createdAt" | "updatedAt"
   >("none");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Debounce search query to avoid recalculating on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Fetch Kanban data client-side
   const { data: kanbanCardsData } = useQuery<{ cards: KanbanCardRow[] }>({
@@ -70,8 +80,28 @@ export function MfgPartsClient({
     error: partsError,
   } = useQuery<BtPartMetadataInfo[]>(getPartsQueryOptions(queryParams));
 
-  // Configure Fuse.js for fuzzy search
+  // Create lookup maps for O(1) access instead of O(n) .find() operations
+  const cardByPartNumber = useMemo(() => {
+    const map = new Map<string, KanbanCardRow>();
+    kanbanCards.forEach((card) => {
+      if (card.title) {
+        map.set(card.title, card);
+      }
+    });
+    return map;
+  }, [kanbanCards]);
+
+  const columnById = useMemo(() => {
+    const map = new Map<string, KanbanColumn>();
+    kanbanColumns.forEach((col) => {
+      map.set(col.id, col);
+    });
+    return map;
+  }, [kanbanColumns]);
+
+  // Configure Fuse.js for fuzzy search - only create when needed
   const fuse = useMemo(() => {
+    if (parts.length === 0) return null;
     return new Fuse(parts, {
       keys: ["name", "partNumber"],
       threshold: 0.4, // Lower = more strict, higher = more fuzzy
@@ -80,13 +110,13 @@ export function MfgPartsClient({
     });
   }, [parts]);
 
-  // Filter parts based on search query
+  // Filter parts based on search query (using debounced value)
   const filteredParts = useMemo(() => {
-    if (!searchQuery.trim()) {
+    if (!debouncedSearchQuery.trim() || !fuse) {
       return parts;
     }
-    return fuse.search(searchQuery).map((result) => result.item);
-  }, [parts, fuse, searchQuery]);
+    return fuse.search(debouncedSearchQuery).map((result) => result.item);
+  }, [parts, fuse, debouncedSearchQuery]);
 
   // Sort filtered parts
   const sortedParts = useMemo(() => {
@@ -113,21 +143,25 @@ export function MfgPartsClient({
         });
 
       case "mfgState": {
-        // Sort by manufacturing state (column position)
+        // Sort by manufacturing state (column position) - using lookup maps for O(1) access
         return partsToSort.sort((a, b) => {
-          const cardA = kanbanCards.find((card) => card.title === a.partNumber);
-          const cardB = kanbanCards.find((card) => card.title === b.partNumber);
+          const cardA = a.partNumber
+            ? cardByPartNumber.get(a.partNumber)
+            : undefined;
+          const cardB = b.partNumber
+            ? cardByPartNumber.get(b.partNumber)
+            : undefined;
 
           if (!cardA && !cardB) return 0;
           if (!cardA) return 1; // Parts without cards go to the end
           if (!cardB) return -1;
 
-          const columnA = kanbanColumns.find(
-            (col) => col.id === cardA.column_id
-          );
-          const columnB = kanbanColumns.find(
-            (col) => col.id === cardB.column_id
-          );
+          const columnA = cardA.column_id
+            ? columnById.get(cardA.column_id)
+            : undefined;
+          const columnB = cardB.column_id
+            ? columnById.get(cardB.column_id)
+            : undefined;
 
           const positionA = columnA?.position ?? Number.MAX_SAFE_INTEGER;
           const positionB = columnB?.position ?? Number.MAX_SAFE_INTEGER;
@@ -137,10 +171,14 @@ export function MfgPartsClient({
       }
 
       case "createdAt": {
-        // Sort by card creation date
+        // Sort by card creation date - using lookup map for O(1) access
         return partsToSort.sort((a, b) => {
-          const cardA = kanbanCards.find((card) => card.title === a.partNumber);
-          const cardB = kanbanCards.find((card) => card.title === b.partNumber);
+          const cardA = a.partNumber
+            ? cardByPartNumber.get(a.partNumber)
+            : undefined;
+          const cardB = b.partNumber
+            ? cardByPartNumber.get(b.partNumber)
+            : undefined;
 
           if (!cardA && !cardB) return 0;
           if (!cardA) return 1; // Parts without cards go to the end
@@ -155,10 +193,14 @@ export function MfgPartsClient({
       }
 
       case "updatedAt": {
-        // Sort by card last updated date
+        // Sort by card last updated date - using lookup map for O(1) access
         return partsToSort.sort((a, b) => {
-          const cardA = kanbanCards.find((card) => card.title === a.partNumber);
-          const cardB = kanbanCards.find((card) => card.title === b.partNumber);
+          const cardA = a.partNumber
+            ? cardByPartNumber.get(a.partNumber)
+            : undefined;
+          const cardB = b.partNumber
+            ? cardByPartNumber.get(b.partNumber)
+            : undefined;
 
           if (!cardA && !cardB) return 0;
           if (!cardA) return 1; // Parts without cards go to the end
@@ -175,7 +217,7 @@ export function MfgPartsClient({
       default:
         return partsToSort;
     }
-  }, [filteredParts, sortBy, sortDirection, kanbanCards, kanbanColumns]);
+  }, [filteredParts, sortBy, sortDirection, cardByPartNumber, columnById]);
 
   const error = validationError || (partsError ? String(partsError) : null);
 
@@ -295,20 +337,33 @@ export function MfgPartsClient({
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {sortedParts.map((part) => (
-                  <PartCard
-                    key={
-                      part.partId ||
-                      part.id ||
-                      part.partIdentity ||
-                      JSON.stringify(part)
-                    }
-                    part={part}
-                    queryParams={queryParams}
-                    cards={kanbanCards}
-                    columns={kanbanColumns}
-                  />
-                ))}
+                {sortedParts.map((part) => {
+                  // Generate a stable key - prefer partId, fallback to id, then partIdentity
+                  // Avoid JSON.stringify as it's expensive
+                  const partKey =
+                    part.partId ||
+                    part.id ||
+                    part.partIdentity ||
+                    `${part.name || "unknown"}-${part.partNumber || "no-number"}`;
+
+                  // Find matching card and column using lookup maps (O(1) access)
+                  const matchingCard = part.partNumber
+                    ? cardByPartNumber.get(part.partNumber)
+                    : undefined;
+                  const currentColumn = matchingCard?.column_id
+                    ? columnById.get(matchingCard.column_id)
+                    : undefined;
+
+                  return (
+                    <PartCard
+                      key={partKey}
+                      part={part}
+                      queryParams={queryParams}
+                      matchingCard={matchingCard}
+                      currentColumn={currentColumn}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>

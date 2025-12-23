@@ -12,12 +12,13 @@ import { type AddCardFormData, AddCardDialog } from "./AddCardDialog";
 import { PartDueDate } from "./PartDueDate";
 
 import type { PartsPageSearchParams } from "~/onshape_connector/page";
+import { ManufacturingStateBadge } from "./ManufacturingStateBadge";
 
 interface PartMfgStateProps {
   part: BtPartMetadataInfo;
   queryParams: PartsPageSearchParams;
-  cards: KanbanCardRow[];
-  columns: KanbanColumn[];
+  matchingCard?: KanbanCardRow;
+  currentColumn?: KanbanColumn;
 }
 
 /**
@@ -26,8 +27,8 @@ interface PartMfgStateProps {
 export function PartMfgState({
   part,
   queryParams,
-  cards,
-  columns,
+  matchingCard,
+  currentColumn,
 }: PartMfgStateProps) {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,14 +61,6 @@ export function PartMfgState({
   if (!part.partNumber) {
     return null;
   }
-
-  // Find card with matching title (exact match)
-  const matchingCard = cards.find((card) => card.title === part.partNumber);
-
-  // Find current column if card exists
-  const currentColumn = matchingCard
-    ? columns.find((col) => col.id === matchingCard.column_id)
-    : null;
 
   const handleAddCard = async (formData: AddCardFormData) => {
     setIsSubmitting(true);
@@ -156,13 +149,9 @@ export function PartMfgState({
   return (
     <div className="space-y-2">
       <Label className="text-xs">Manufacturing State:</Label>
+      {currentColumn && <ManufacturingStateBadge column={currentColumn} />}
 
-      <PartDueDate
-        card={matchingCard}
-        part={part}
-        queryParams={queryParams}
-        columns={columns}
-      />
+      <PartDueDate card={matchingCard} part={part} queryParams={queryParams} />
       {result && !result.success && result.error && (
         <p className="text-destructive text-xs">{result.error}</p>
       )}
