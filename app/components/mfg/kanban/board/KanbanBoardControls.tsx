@@ -14,9 +14,9 @@ interface KanbanBoardControlsProps {
   hideImages: boolean;
   isSaving: boolean;
   groupByProcess: boolean;
-  showOnlyMyCards: boolean;
+  sortByUser: boolean;
   onGroupByProcessChange: (value: boolean) => void;
-  onShowOnlyMyCardsChange: (value: boolean) => void;
+  onSortByUserChange: (value: boolean) => void;
 }
 
 export function KanbanBoardControls({
@@ -29,22 +29,22 @@ export function KanbanBoardControls({
   onHideImages,
   hideImages,
   groupByProcess,
-  showOnlyMyCards,
+  sortByUser,
   onGroupByProcessChange,
-  onShowOnlyMyCardsChange,
+  onSortByUserChange,
 }: KanbanBoardControlsProps) {
   const toggleValues = useMemo(() => {
     const values: string[] = [];
     if (!hideImages) values.push("images");
     if (groupByProcess) values.push("groupByProcess");
-    if (showOnlyMyCards) values.push("myCardsOnly");
+    if (sortByUser) values.push("sortByUser");
     return values;
-  }, [hideImages, groupByProcess, showOnlyMyCards]);
+  }, [hideImages, groupByProcess, sortByUser]);
 
   const handleValueChange = (values: string[]) => {
     const hasImages = values.includes("images");
     const hasGroupByProcess = values.includes("groupByProcess");
-    const hasMyCardsOnly = values.includes("myCardsOnly");
+    const hasSortByUser = values.includes("sortByUser");
 
     if (hasImages !== !hideImages) {
       onHideImages();
@@ -52,8 +52,8 @@ export function KanbanBoardControls({
     if (hasGroupByProcess !== groupByProcess) {
       onGroupByProcessChange(hasGroupByProcess);
     }
-    if (hasMyCardsOnly !== showOnlyMyCards) {
-      onShowOnlyMyCardsChange(hasMyCardsOnly);
+    if (hasSortByUser !== sortByUser) {
+      onSortByUserChange(hasSortByUser);
     }
   };
 
@@ -74,11 +74,11 @@ export function KanbanBoardControls({
         </ToggleGroupItem>
         <ToggleGroupItem value="groupByProcess" aria-label="Group by process">
           <Layers className="size-4" />
-          <span className="hidden sm:inline">Group by Process</span>
+          <span className="hidden sm:inline">Sort by Process</span>
         </ToggleGroupItem>
-        <ToggleGroupItem value="myCardsOnly" aria-label="Show only my cards">
+        <ToggleGroupItem value="sortByUser" aria-label="Sort by user">
           <User className="size-4" />
-          <span className="hidden sm:inline">My Cards Only</span>
+          <span className="hidden sm:inline">Sort by User</span>
         </ToggleGroupItem>
       </ToggleGroup>
 

@@ -4,6 +4,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Calendar, User, Wrench, Box } from "lucide-react";
 import { toast } from "sonner";
+import Image from "next/image";
 import { Card, CardContent } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Sheet, SheetTrigger } from "~/components/ui/sheet";
@@ -201,13 +202,16 @@ export function KanbanCard({ card, hideImages = false }: KanbanCardProps) {
                   className="w-full px-2.5 pb-2 text-left sm:px-3"
                   aria-label="View card details"
                 >
-                  <img
-                    src={imageUrl}
-                    alt={card.title}
-                    className="pointer-events-none h-auto w-full object-contain"
-                    onError={() => setImageError(true)}
-                    style={{ maxHeight: "120px" }}
-                  />
+                  <div className="relative w-full" style={{ height: "120px" }}>
+                    <Image
+                      src={imageUrl}
+                      alt={card.title}
+                      fill
+                      className="pointer-events-none object-contain"
+                      onError={() => setImageError(true)}
+                      unoptimized
+                    />
+                  </div>
                 </button>
               )}
             </div>

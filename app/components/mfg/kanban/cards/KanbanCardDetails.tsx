@@ -9,6 +9,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import Image from "next/image";
 import { Button } from "~/components/ui/button";
 import {
   AlertDialog,
@@ -224,13 +225,16 @@ export function KanbanCardDetails({
         {/* Image Section */}
         {imageUrl && !imageError && (
           <div className="bg-muted/50 overflow-hidden rounded-lg border">
-            <img
-              src={imageUrl}
-              alt={card.title}
-              className="h-auto w-full object-contain"
-              onError={() => setImageError(true)}
-              style={{ maxHeight: "300px" }}
-            />
+            <div className="relative w-full" style={{ height: "300px" }}>
+              <Image
+                src={imageUrl}
+                alt={card.title}
+                fill
+                className="object-contain"
+                onError={() => setImageError(true)}
+                unoptimized
+              />
+            </div>
           </div>
         )}
 
