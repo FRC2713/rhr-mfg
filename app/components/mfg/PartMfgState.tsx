@@ -123,6 +123,9 @@ export function PartMfgState({
 
   // If card not found, show part properties and "Add to manufacturing tracker" button
   if (!matchingCard) {
+    const hasMaterial = Boolean(part?.material?.displayName);
+    const isButtonDisabled = isSubmitting || !hasMaterial;
+
     return (
       <div className="space-y-2">
         {part && (
@@ -160,11 +163,17 @@ export function PartMfgState({
           size="sm"
           variant="outline"
           className="w-full"
-          disabled={isSubmitting}
+          disabled={isButtonDisabled}
           onClick={() => setDialogOpen(true)}
         >
           Add to manufacturing tracker
         </Button>
+        {!hasMaterial && (
+          <p className="text-muted-foreground text-xs">
+            Set the material on this part in Onshape to add it to the
+            manufacturing tracker.
+          </p>
+        )}
         {result && !result.success && result.error && (
           <p className="text-destructive text-xs">{result.error}</p>
         )}
