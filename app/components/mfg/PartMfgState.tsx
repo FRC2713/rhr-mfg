@@ -4,20 +4,28 @@ import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import type { KanbanColumn } from "~/api/kanban/config/route";
+import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
-import type { KanbanCardRow } from "~/lib/supabase/database.types";
+import type { KanbanCardRow, ProcessRow } from "~/lib/supabase/database.types";
 import { type AddCardFormData, AddCardDialog } from "./AddCardDialog";
 import { PartDueDate } from "./PartDueDate";
-
-import type { PartsPageSearchParams } from "~/onshape_connector/page";
 import { ManufacturingStateBadge } from "./ManufacturingStateBadge";
+import { PartColorChip } from "./parts/PartColorChip";
 
 interface PartMfgStateProps {
-  part: BtPartMetadataInfo;
-  queryParams: PartsPageSearchParams;
-  matchingCard?: KanbanCardRow;
+  partNumber: string;
+  partId: string;
+  part?: BtPartMetadataInfo;
+  thumbnailUrl?: string;
+  onshapeParams?: {
+    documentId: string;
+    instanceType: string;
+    instanceId: string;
+    elementId: string;
+  };
+  matchingCard?: KanbanCardRow & { processes?: ProcessRow[] };
   currentColumn?: KanbanColumn;
 }
 
@@ -25,8 +33,11 @@ interface PartMfgStateProps {
  * Component to display manufacturing tracking state for a part
  */
 export function PartMfgState({
+  partNumber,
+  partId,
   part,
-  queryParams,
+  thumbnailUrl,
+  onshapeParams,
   matchingCard,
   currentColumn,
 }: PartMfgStateProps) {
@@ -57,11 +68,6 @@ export function PartMfgState({
     }
   }, [result?.success, isSubmitting, queryClient]);
 
-  // Don't show anything if part has no part number
-  if (!part.partNumber) {
-    return null;
-  }
-
   const handleAddCard = async (formData: AddCardFormData) => {
     setIsSubmitting(true);
     setResult(null);
@@ -69,7 +75,7 @@ export function PartMfgState({
 
     const submitFormData = new FormData();
     submitFormData.append("action", "addCard");
-    submitFormData.append("partNumber", part.partNumber || "");
+    submitFormData.append("partNumber", partNumber);
 
     // Add process IDs
     formData.processIds.forEach((processId) => {
@@ -88,21 +94,17 @@ export function PartMfgState({
       submitFormData.append("dueDate", format(formData.dueDate, "yyyy-MM-dd"));
     }
 
-    if (queryParams.documentId) {
-      submitFormData.append("documentId", queryParams.documentId);
-      submitFormData.append("instanceType", queryParams.instanceType);
-      submitFormData.append("instanceId", queryParams.instanceId || "");
-      submitFormData.append("elementId", queryParams.elementId || "");
-      submitFormData.append("partId", part.partId || part.id || "");
+    if (onshapeParams) {
+      submitFormData.append("documentId", onshapeParams.documentId);
+      submitFormData.append("instanceType", onshapeParams.instanceType);
+      submitFormData.append("instanceId", onshapeParams.instanceId);
+      submitFormData.append("elementId", onshapeParams.elementId);
+      submitFormData.append("partId", partId);
     }
 
-    // Extract raw thumbnail URL (same strategy as PartCardThumbnail)
-    const rawThumbnailUrl =
-      part.thumbnailInfo?.sizes?.find((s) => s.size === "300x300")?.href ||
-      part.thumbnailInfo?.sizes?.[0]?.href ||
-      part.thumbnailInfo?.sizes?.find((s) => s.size === "600x340")?.href;
-    if (rawThumbnailUrl) {
-      submitFormData.append("rawThumbnailUrl", rawThumbnailUrl);
+    // Add thumbnail URL if available
+    if (thumbnailUrl) {
+      submitFormData.append("rawThumbnailUrl", thumbnailUrl);
     }
 
     try {
@@ -119,10 +121,34 @@ export function PartMfgState({
     }
   };
 
-  // If card not found, show "Add to manufacturing tracker" button with dialog
+  // If card not found, show part properties and "Add to manufacturing tracker" button
   if (!matchingCard) {
     return (
       <div className="space-y-2">
+        {part && (
+          <table className="w-full text-xs">
+            <tbody className="divide-border divide-y">
+              <tr>
+                <td className="text-muted-foreground py-1.5 pr-4 font-medium">
+                  Material
+                </td>
+                <td className="py-1.5">
+                  <Badge variant="secondary">
+                    {part.material?.displayName || "Not Set"}
+                  </Badge>
+                </td>
+              </tr>
+              <tr>
+                <td className="text-muted-foreground py-1.5 pr-4 font-medium">
+                  Appearance
+                </td>
+                <td className="py-1.5">
+                  <PartColorChip color={part.appearance?.color} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        )}
         <AddCardDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
@@ -148,12 +174,95 @@ export function PartMfgState({
 
   return (
     <div className="space-y-2">
-      <Label className="text-xs">Manufacturing State:</Label>
-      {currentColumn && <ManufacturingStateBadge column={currentColumn} />}
+      <table className="w-full text-xs">
+        <tbody className="divide-border divide-y">
+          {part && (
+            <>
+              <tr>
+                <td className="text-muted-foreground py-1.5 pr-4 font-medium">
+                  Material
+                </td>
+                <td className="py-1.5">
+                  <Badge variant="secondary">
+                    {part.material?.displayName || "Not Set"}
+                  </Badge>
+                </td>
+              </tr>
 
-      <PartDueDate card={matchingCard} part={part} queryParams={queryParams} />
+              <tr>
+                <td className="text-muted-foreground py-1.5 pr-4 font-medium">
+                  Appearance
+                </td>
+                <td className="py-1.5">
+                  <PartColorChip color={part.appearance?.color} />
+                </td>
+              </tr>
+            </>
+          )}
+          <tr>
+            <td className="text-muted-foreground py-1.5 pr-4 font-medium">
+              Manufacturing State
+            </td>
+            <td className="py-1.5">
+              {currentColumn ? (
+                <ManufacturingStateBadge column={currentColumn} />
+              ) : (
+                <span className="text-muted-foreground">Not Set</span>
+              )}
+            </td>
+          </tr>
+          <tr>
+            <td className="text-muted-foreground py-1.5 pr-4 font-medium">
+              Quantity per Robot
+            </td>
+            <td className="py-1.5">
+              <Badge variant="secondary">
+                {matchingCard?.quantity_per_robot || "Not Set"}
+              </Badge>
+            </td>
+          </tr>
+          <tr>
+            <td className="text-muted-foreground py-1.5 pr-4 font-medium">
+              Quantity to Make
+            </td>
+            <td className="py-1.5">
+              <Badge variant="secondary">
+                {matchingCard?.quantity_to_make || "Not Set"}
+              </Badge>
+            </td>
+          </tr>
+          {matchingCard.processes && matchingCard.processes.length > 0 && (
+            <tr>
+              <td className="text-muted-foreground py-1.5 pr-4 align-top font-medium">
+                Processes
+              </td>
+              <td className="py-1.5">
+                <div className="flex flex-wrap gap-1">
+                  {matchingCard.processes.map((process: ProcessRow) => (
+                    <Badge
+                      key={process.id}
+                      variant="secondary"
+                      className="gap-1 bg-purple-500/10 text-xs font-normal text-purple-700 dark:text-purple-400"
+                    >
+                      {process.name}
+                    </Badge>
+                  ))}
+                </div>
+              </td>
+            </tr>
+          )}
+          <tr>
+            <td className="text-muted-foreground py-1.5 pr-4 font-medium">
+              Due Date
+            </td>
+            <td className="py-1.5">
+              <PartDueDate card={matchingCard} />
+            </td>
+          </tr>
+        </tbody>
+      </table>
       {result && !result.success && result.error && (
-        <p className="text-destructive text-xs">{result.error}</p>
+        <p className="text-destructive mt-2 text-xs">{result.error}</p>
       )}
     </div>
   );

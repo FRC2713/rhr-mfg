@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -13,6 +14,15 @@ import type { PartsPageSearchParams } from "~/onshape_connector/page";
 import { PartCardThumbnail } from "./PartCardThumbnail";
 import { PartNumberInput } from "./PartNumberInput";
 import { PartMfgState } from "./PartMfgState";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../ui/collapsible";
+import { Button } from "../ui/button";
+import { ChevronDownIcon, EyeIcon } from "lucide-react";
+import { cn } from "~/lib/utils";
+import { ManufacturingStateBadge } from "./ManufacturingStateBadge";
 
 interface PartCardProps {
   part: BtPartMetadataInfo;
@@ -30,27 +40,82 @@ export function PartCard({
   matchingCard,
   currentColumn,
 }: PartCardProps) {
+  // Extract thumbnail URL once (memoized to avoid recalculation)
+  const thumbnailUrl = useMemo(() => {
+    return (
+      part.thumbnailInfo?.sizes?.find((s) => s.size === "300x300")?.href ||
+      part.thumbnailInfo?.sizes?.[0]?.href ||
+      part.thumbnailInfo?.sizes?.find((s) => s.size === "600x340")?.href
+    );
+  }, [part.thumbnailInfo?.sizes]);
+
+  // Extract onshape params only if documentId exists (memoized)
+  const onshapeParams = useMemo(() => {
+    if (!queryParams.documentId) return undefined;
+    return {
+      documentId: queryParams.documentId,
+      instanceType: queryParams.instanceType,
+      instanceId: queryParams.instanceId || "",
+      elementId: queryParams.elementId || "",
+    };
+  }, [
+    queryParams.documentId,
+    queryParams.instanceType,
+    queryParams.instanceId,
+    queryParams.elementId,
+  ]);
+
+  // Early return if no part number (PartMfgState won't render anything anyway)
+  const partId = part.partId || part.id || "";
+  const [isExpanded, setIsExpanded] = useState(true);
+
   return (
     <Card className="transition-shadow hover:shadow-lg">
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-lg">
-            {part.name || `Part ${part.partId || part.id || "Unknown"}`}
-          </CardTitle>
+          <div className="flex flex-col flex-wrap items-start gap-2">
+            <CardTitle className="text-lg">
+              {part.name || `Part ${partId || "Unknown"}`}
+            </CardTitle>
+            {part.partNumber && (
+              <span className="text-muted-foreground font-mono text-sm">
+                {part.partNumber || "No P/N"}
+              </span>
+            )}
+          </div>
+          {matchingCard && currentColumn && (
+            <ManufacturingStateBadge column={currentColumn} />
+          )}
           {part.isHidden && <Badge variant="secondary">Hidden</Badge>}
         </div>
-        <CardDescription>
-          <PartNumberInput part={part} queryParams={queryParams} />
-        </CardDescription>
       </CardHeader>
-      <PartCardThumbnail part={part} />
-      <CardContent className="space-y-4">
-        <PartMfgState
-          part={part}
-          queryParams={queryParams}
-          matchingCard={matchingCard}
-          currentColumn={currentColumn}
-        />
+      <CardContent className="flex flex-col gap-2">
+        <PartCardThumbnail part={part} />
+        {part.partNumber ? (
+          <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+            <CollapsibleTrigger className="w-full">
+              <div className="flex w-full flex-row flex-wrap items-center justify-between gap-2">
+                <span>Part Details</span>
+                <ChevronDownIcon
+                  className={cn("h-4 w-4", isExpanded && "rotate-180")}
+                />
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <PartMfgState
+                partNumber={part.partNumber}
+                partId={partId}
+                part={part}
+                thumbnailUrl={thumbnailUrl}
+                onshapeParams={onshapeParams}
+                matchingCard={matchingCard}
+                currentColumn={currentColumn}
+              />
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
+          <PartNumberInput part={part} queryParams={queryParams} />
+        )}
       </CardContent>
     </Card>
   );

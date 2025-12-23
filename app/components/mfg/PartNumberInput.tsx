@@ -48,15 +48,6 @@ export function PartNumberInput({ part, queryParams }: PartNumberInputProps) {
     }
   }, [result, isSubmitting, router]);
 
-  // If part number is already set, just display it
-  if (part.partNumber) {
-    return (
-      <>
-        Part Number: <code className="text-xs">{part.partNumber}</code>
-      </>
-    );
-  }
-
   // If we don't have required params, show "not set"
   if (
     !queryParams.documentId ||

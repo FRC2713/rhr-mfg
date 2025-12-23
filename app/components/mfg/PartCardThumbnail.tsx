@@ -30,7 +30,7 @@ export function PartCardThumbnail({ part }: PartCardThumbnailProps) {
 
   return (
     <div className="px-6 pb-4">
-      <div className="relative w-full bg-muted rounded border" style={{ height: "300px" }}>
+      <div className="relative w-full" style={{ height: "300px" }}>
         <Image
           src={thumbnailHref}
           alt={`Thumbnail for ${part.name || part.partId || part.id || "part"}`}

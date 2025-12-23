@@ -14,14 +14,9 @@ import {
 } from "~/components/ui/popover";
 import { cn } from "~/lib/utils";
 import type { KanbanCardRow } from "~/lib/supabase/database.types";
-import type { KanbanColumn } from "~/api/kanban/config/route";
-import type { PartsPageSearchParams } from "~/onshape_connector/page";
-import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 
 interface PartDueDateProps {
   card: KanbanCardRow;
-  part: BtPartMetadataInfo;
-  queryParams: PartsPageSearchParams;
 }
 
 /**
@@ -172,15 +167,14 @@ export function PartDueDate({ card }: PartDueDateProps) {
   };
 
   return (
-    <div className="space-y-2">
-      <Label className="text-xs">Due Date:</Label>
+    <div className="flex flex-row flex-wrap items-center gap-2">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             size="sm"
             className={cn(
-              "h-8 w-full justify-start text-left font-normal",
+              "h-8 w-fit justify-start text-left font-normal",
               !selectedDate && "text-muted-foreground"
             )}
             disabled={isSubmitting}
@@ -199,7 +193,6 @@ export function PartDueDate({ card }: PartDueDateProps) {
             selected={selectedDate}
             onSelect={handleDateSelect}
             disabled={isSubmitting}
-            initialFocus
           />
           {selectedDate && (
             <div className="border-t p-3">
