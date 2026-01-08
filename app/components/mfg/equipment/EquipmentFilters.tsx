@@ -1,22 +1,25 @@
 "use client";
 
-import { X } from "lucide-react";
+import { X, ChevronDown } from "lucide-react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "~/components/ui/button";
+import { Badge } from "~/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuSeparator,
+} from "~/components/ui/dropdown-menu";
 import type { EquipmentStatus } from "./shared/EquipmentStatusBadge";
 import type { ProcessRow } from "~/lib/supabase/database.types";
 
 export interface EquipmentFilters {
-  processId: string;
-  status: EquipmentStatus | "";
-  location: string;
+  processIds: string[];
+  statuses: EquipmentStatus[];
+  locations: string[];
 }
 
 interface EquipmentFiltersProps {
@@ -25,11 +28,22 @@ interface EquipmentFiltersProps {
   availableLocations: string[];
 }
 
+const STATUS_OPTIONS = [
+  { value: "available" as EquipmentStatus, label: "Available" },
+  { value: "in-use" as EquipmentStatus, label: "In Use" },
+  { value: "maintenance" as EquipmentStatus, label: "Maintenance" },
+  { value: "retired" as EquipmentStatus, label: "Retired" },
+];
+
 export function EquipmentFiltersComponent({
   filters,
   onFiltersChange,
   availableLocations,
 }: EquipmentFiltersProps) {
+  const [processMenuOpen, setProcessMenuOpen] = useState(false);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [locationMenuOpen, setLocationMenuOpen] = useState(false);
+
   // Fetch processes from API
   const { data: processesData } = useQuery<{ processes: ProcessRow[] }>({
     queryKey: ["processes"],
@@ -43,80 +57,198 @@ export function EquipmentFiltersComponent({
 
   const processes = processesData?.processes || [];
   const hasActiveFilters =
-    filters.processId || filters.status || filters.location;
+    filters.processIds.length > 0 ||
+    filters.statuses.length > 0 ||
+    filters.locations.length > 0;
 
-  const clearFilters = () => {
+  const clearAllFilters = () => {
     onFiltersChange({
-      processId: "",
-      status: "",
-      location: "",
+      processIds: [],
+      statuses: [],
+      locations: [],
     });
+  };
+
+  const toggleProcess = (processId: string) => {
+    onFiltersChange({
+      ...filters,
+      processIds: filters.processIds.includes(processId)
+        ? filters.processIds.filter((id) => id !== processId)
+        : [...filters.processIds, processId],
+    });
+  };
+
+  const toggleStatus = (status: EquipmentStatus) => {
+    onFiltersChange({
+      ...filters,
+      statuses: filters.statuses.includes(status)
+        ? filters.statuses.filter((s) => s !== status)
+        : [...filters.statuses, status],
+    });
+  };
+
+  const toggleLocation = (location: string) => {
+    onFiltersChange({
+      ...filters,
+      locations: filters.locations.includes(location)
+        ? filters.locations.filter((l) => l !== location)
+        : [...filters.locations, location],
+    });
+  };
+
+  const clearFilterType = (type: "process" | "status" | "location") => {
+    if (type === "process") {
+      onFiltersChange({ ...filters, processIds: [] });
+    } else if (type === "status") {
+      onFiltersChange({ ...filters, statuses: [] });
+    } else {
+      onFiltersChange({ ...filters, locations: [] });
+    }
+  };
+
+  const getProcessName = (id: string) => {
+    return processes.find((p) => p.id === id)?.name || id;
+  };
+
+  const getStatusLabel = (status: EquipmentStatus) => {
+    return STATUS_OPTIONS.find((s) => s.value === status)?.label || status;
   };
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Select
-        value={filters.processId || undefined}
-        onValueChange={(value) =>
-          onFiltersChange({ ...filters, processId: value })
-        }
-      >
-        <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Process" />
-        </SelectTrigger>
-        <SelectContent>
-          {processes.map((process) => (
-            <SelectItem key={process.id} value={process.id}>
-              {process.name}
-            </SelectItem>
+      {/* Process Filter */}
+      <DropdownMenu open={processMenuOpen} onOpenChange={setProcessMenuOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2">
+            {filters.processIds.length > 0
+              ? `Process (${filters.processIds.length})`
+              : "Process"}
+            <ChevronDown className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56">
+          {processes.length === 0 ? (
+            <div className="px-2 py-1.5 text-sm text-muted-foreground">
+              No processes available
+            </div>
+          ) : (
+            processes.map((process) => (
+              <DropdownMenuCheckboxItem
+                key={process.id}
+                checked={filters.processIds.includes(process.id)}
+                onCheckedChange={() => toggleProcess(process.id)}
+                onSelect={(e) => e.preventDefault()}
+              >
+                {process.name}
+              </DropdownMenuCheckboxItem>
+            ))
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Status Filter */}
+      <DropdownMenu open={statusMenuOpen} onOpenChange={setStatusMenuOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2">
+            {filters.statuses.length > 0
+              ? `Status (${filters.statuses.length})`
+              : "Status"}
+            <ChevronDown className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          {STATUS_OPTIONS.map((option) => (
+            <DropdownMenuCheckboxItem
+              key={option.value}
+              checked={filters.statuses.includes(option.value)}
+              onCheckedChange={() => toggleStatus(option.value)}
+              onSelect={(e) => e.preventDefault()}
+            >
+              {option.label}
+            </DropdownMenuCheckboxItem>
           ))}
-        </SelectContent>
-      </Select>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      <Select
-        value={filters.status || undefined}
-        onValueChange={(value) =>
-          onFiltersChange({ ...filters, status: value as EquipmentStatus })
-        }
-      >
-        <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="available">Available</SelectItem>
-          <SelectItem value="in-use">In Use</SelectItem>
-          <SelectItem value="maintenance">Maintenance</SelectItem>
-          <SelectItem value="retired">Retired</SelectItem>
-        </SelectContent>
-      </Select>
+      {/* Location Filter */}
+      <DropdownMenu open={locationMenuOpen} onOpenChange={setLocationMenuOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2">
+            {filters.locations.length > 0
+              ? `Location (${filters.locations.length})`
+              : "Location"}
+            <ChevronDown className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56">
+          {availableLocations.length === 0 ? (
+            <div className="px-2 py-1.5 text-sm text-muted-foreground">
+              No locations available
+            </div>
+          ) : (
+            availableLocations.map((location) => (
+              <DropdownMenuCheckboxItem
+                key={location}
+                checked={filters.locations.includes(location)}
+                onCheckedChange={() => toggleLocation(location)}
+                onSelect={(e) => e.preventDefault()}
+              >
+                {location}
+              </DropdownMenuCheckboxItem>
+            ))
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      <Select
-        value={filters.location || undefined}
-        onValueChange={(value) =>
-          onFiltersChange({ ...filters, location: value })
-        }
-      >
-        <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Location" />
-        </SelectTrigger>
-        <SelectContent>
-          {availableLocations.map((location) => (
-            <SelectItem key={location} value={location}>
-              {location}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* Selected Process Badges */}
+      {filters.processIds.map((processId) => (
+        <Badge key={processId} variant="secondary" className="gap-1">
+          {getProcessName(processId)}
+          <button
+            onClick={() => toggleProcess(processId)}
+            className="ml-1 hover:text-destructive"
+          >
+            <X className="size-3" />
+          </button>
+        </Badge>
+      ))}
 
+      {/* Selected Status Badges */}
+      {filters.statuses.map((status) => (
+        <Badge key={status} variant="secondary" className="gap-1">
+          {getStatusLabel(status)}
+          <button
+            onClick={() => toggleStatus(status)}
+            className="ml-1 hover:text-destructive"
+          >
+            <X className="size-3" />
+          </button>
+        </Badge>
+      ))}
+
+      {/* Selected Location Badges */}
+      {filters.locations.map((location) => (
+        <Badge key={location} variant="secondary" className="gap-1">
+          {location}
+          <button
+            onClick={() => toggleLocation(location)}
+            className="ml-1 hover:text-destructive"
+          >
+            <X className="size-3" />
+          </button>
+        </Badge>
+      ))}
+
+      {/* Clear All Button */}
       {hasActiveFilters && (
         <Button
           variant="ghost"
           size="sm"
-          onClick={clearFilters}
+          onClick={clearAllFilters}
           className="h-9"
         >
           <X className="mr-2 size-4" />
-          Clear
+          Clear all
         </Button>
       )}
     </div>

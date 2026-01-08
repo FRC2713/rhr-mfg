@@ -97,23 +97,23 @@ export function EquipmentDetailsSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
-        <SheetHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <SheetTitle className="text-2xl">{equipment.name}</SheetTitle>
-              <SheetDescription className="mt-2">
-                Equipment details and information
-              </SheetDescription>
-            </div>
-            <EquipmentActionsMenu
-              equipment={equipment}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onViewDetails={() => {}} // Already viewing details
-            />
+      <SheetContent className="w-full sm:max-w-2xl p-4 sm:p-6 text-base">
+        <SheetHeader className="p-0 pr-12">
+          <div>
+            <SheetTitle className="text-2xl sm:text-3xl">{equipment.name}</SheetTitle>
+            <SheetDescription className="mt-1 text-sm sm:text-base">
+              Equipment details and information
+            </SheetDescription>
           </div>
         </SheetHeader>
+        <div className="absolute top-4 right-12">
+          <EquipmentActionsMenu
+            equipment={equipment}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onViewDetails={() => {}} // Already viewing details
+          />
+        </div>
 
         <div className="mt-6 space-y-6">
           {/* Status and Processes */}
@@ -148,8 +148,8 @@ export function EquipmentDetailsSheet({
           {/* Description */}
           {equipment.description && (
             <div>
-              <h3 className="font-semibold mb-2">Description</h3>
-              <p className="text-muted-foreground whitespace-pre-wrap">
+              <h3 className="font-semibold mb-2 text-base">Description</h3>
+              <p className="text-muted-foreground whitespace-pre-wrap text-sm sm:text-base">
                 {equipment.description}
               </p>
             </div>
@@ -158,7 +158,7 @@ export function EquipmentDetailsSheet({
           {/* Documentation Link */}
           {equipment.documentation_url && (
             <div>
-              <h3 className="font-semibold mb-2">Documentation</h3>
+              <h3 className="font-semibold mb-2 text-base">Documentation</h3>
               <Button variant="outline" asChild>
                 <a
                   href={equipment.documentation_url}
@@ -175,7 +175,7 @@ export function EquipmentDetailsSheet({
 
           {/* Image Gallery */}
           <div>
-            <h3 className="font-semibold mb-4">Images</h3>
+            <h3 className="font-semibold mb-4 text-base">Images</h3>
             <EquipmentImageGallery
               images={imageUrls}
               onUpload={async (files) => {
