@@ -11,6 +11,7 @@ interface ImageUploadZoneProps {
   onDeleteImage?: (imageUrl: string) => Promise<void>;
   maxImages?: number;
   disabled?: boolean;
+  onPreviewClick?: (index: number) => void;
 }
 
 export function ImageUploadZone({
@@ -19,6 +20,7 @@ export function ImageUploadZone({
   onDeleteImage,
   maxImages = 10,
   disabled = false,
+  onPreviewClick,
 }: ImageUploadZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -115,10 +117,11 @@ export function ImageUploadZone({
     <div className="space-y-4">
       {existingImages.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-          {existingImages.map((imageUrl) => (
+          {existingImages.map((imageUrl, idx) => (
             <ImagePreview
-              key={imageUrl}
+              key={`${imageUrl}-${idx}`}
               imageUrl={imageUrl}
+              onClick={onPreviewClick ? () => onPreviewClick(idx) : undefined}
               onDelete={onDeleteImage ? () => handleDelete(imageUrl) : undefined}
               showDelete={!!onDeleteImage}
             />

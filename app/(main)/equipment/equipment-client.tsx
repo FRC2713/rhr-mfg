@@ -30,9 +30,9 @@ export function EquipmentClient() {
   >(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<EquipmentFilters>({
-    processId: "",
-    status: "",
-    location: "",
+    processIds: [],
+    statuses: [],
+    locations: [],
   });
 
   const { data: equipment = [], isLoading, error } = useQuery({
@@ -67,21 +67,24 @@ export function EquipmentClient() {
         if (!matchesSearch) return false;
       }
 
-      // Process filter
+      // Process filter - check if any selected processIds match item's processes
       if (
-        filters.processId &&
-        !item.processes?.some((p) => p.id === filters.processId)
+        filters.processIds.length > 0 &&
+        !item.processes?.some((p) => filters.processIds.includes(p.id))
       ) {
         return false;
       }
 
-      // Status filter
-      if (filters.status && item.status !== filters.status) {
+      // Status filter - check if item's status is in selected statuses
+      if (filters.statuses.length > 0 && !filters.statuses.includes(item.status as any)) {
         return false;
       }
 
-      // Location filter
-      if (filters.location && item.location !== filters.location) {
+      // Location filter - check if item's location is in selected locations
+      if (
+        filters.locations.length > 0 &&
+        !filters.locations.includes(item.location || "")
+      ) {
         return false;
       }
 
@@ -130,9 +133,9 @@ export function EquipmentClient() {
       />
 
       {(availableLocations.length > 0 ||
-        filters.processId ||
-        filters.status ||
-        filters.location) && (
+        filters.processIds.length > 0 ||
+        filters.statuses.length > 0 ||
+        filters.locations.length > 0) && (
         <EquipmentFiltersComponent
           filters={filters}
           onFiltersChange={setFilters}

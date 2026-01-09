@@ -33,27 +33,13 @@ export function EquipmentImageGallery({
   return (
     <>
       <div className="space-y-4">
-        {images.length > 0 && (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-            {images.map((imageUrl, index) => (
-              <ImagePreview
-                key={imageUrl}
-                imageUrl={imageUrl}
-                onClick={() => handleImageClick(index)}
-                onDelete={
-                  onDeleteImage ? () => onDeleteImage(imageUrl) : undefined
-                }
-                showDelete={!!onDeleteImage}
-              />
-            ))}
-          </div>
-        )}
         <ImageUploadZone
           onUpload={onUpload}
           existingImages={images}
           onDeleteImage={onDeleteImage}
           maxImages={maxImages}
           disabled={disabled}
+          onPreviewClick={(index) => handleImageClick(index)}
         />
       </div>
       <EquipmentImageLightbox
