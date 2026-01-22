@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
+import { Checkbox } from "~/components/ui/checkbox";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import type { KanbanCardRow } from "~/lib/supabase/database.types";
 import type { KanbanColumn } from "~/api/kanban/config/route";
@@ -29,6 +30,10 @@ interface PartCardProps {
   queryParams: PartsPageSearchParams;
   matchingCard?: KanbanCardRow;
   currentColumn?: KanbanColumn;
+  isSelected?: boolean;
+  onSelect?: (e: React.MouseEvent) => void;
+  partKey?: string;
+  index?: number;
 }
 
 /**
@@ -39,6 +44,10 @@ export function PartCard({
   queryParams,
   matchingCard,
   currentColumn,
+  isSelected = false,
+  onSelect,
+  partKey,
+  index,
 }: PartCardProps) {
   // Extract thumbnail URL once (memoized to avoid recalculation)
   const thumbnailUrl = useMemo(() => {
@@ -73,20 +82,51 @@ export function PartCard({
     <Card className="transition-shadow hover:shadow-lg">
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-col flex-wrap items-start gap-2">
-            <CardTitle className="text-lg">
-              {part.name || `Part ${partId || "Unknown"}`}
-            </CardTitle>
-            {part.partNumber && (
-              <span className="text-muted-foreground font-mono text-sm">
-                {part.partNumber || "No P/N"}
-              </span>
+          <div className="flex items-start gap-2 flex-1">
+            {/* Checkbox - Top left */}
+            {onSelect && (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onSelect(e);
+                }}
+                onMouseDown={(e) => {
+                  // Prevent other interactions when clicking checkbox
+                  e.stopPropagation();
+                }}
+                onPointerDown={(e) => {
+                  // Prevent other interactions when clicking checkbox
+                  e.stopPropagation();
+                }}
+                className="flex items-center cursor-pointer z-10 mt-0.5"
+              >
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => {
+                    // Handled by onClick above
+                  }}
+                  className="pointer-events-none border-foreground/40 dark:border-foreground/60 bg-background/80 dark:bg-background/60 shadow-sm"
+                />
+              </div>
             )}
+            <div className="flex flex-col flex-wrap items-start gap-2">
+              <CardTitle className="text-lg">
+                {part.name || `Part ${partId || "Unknown"}`}
+              </CardTitle>
+              {part.partNumber && (
+                <span className="text-muted-foreground font-mono text-sm">
+                  {part.partNumber || "No P/N"}
+                </span>
+              )}
+            </div>
           </div>
-          {matchingCard && currentColumn && (
-            <ManufacturingStateBadge column={currentColumn} />
-          )}
-          {part.isHidden && <Badge variant="secondary">Hidden</Badge>}
+          <div className="flex items-start gap-2">
+            {matchingCard && currentColumn && (
+              <ManufacturingStateBadge column={currentColumn} />
+            )}
+            {part.isHidden && <Badge variant="secondary">Hidden</Badge>}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">

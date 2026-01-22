@@ -6,12 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import type { KanbanColumn } from "~/api/kanban/config/route";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Label } from "~/components/ui/label";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import type { KanbanCardRow, ProcessRow } from "~/lib/supabase/database.types";
+import { isPartEligibleForRelease } from "~/onshape_connector/utils/partEligibility";
 import { type AddCardFormData, AddCardDialog } from "./AddCardDialog";
-import { PartDueDate } from "./PartDueDate";
 import { ManufacturingStateBadge } from "./ManufacturingStateBadge";
+import { PartDueDate } from "./PartDueDate";
 import { PartColorChip } from "./parts/PartColorChip";
 
 interface PartMfgStateProps {
@@ -123,8 +123,8 @@ export function PartMfgState({
 
   // If card not found, show part properties and "Add to manufacturing tracker" button
   if (!matchingCard) {
-    const hasMaterial = Boolean(part?.material?.displayName);
-    const isButtonDisabled = isSubmitting || !hasMaterial;
+    const isEligible = isPartEligibleForRelease(part, matchingCard);
+    const isButtonDisabled = isSubmitting || !isEligible;
 
     return (
       <div className="space-y-2">
@@ -168,10 +168,13 @@ export function PartMfgState({
         >
           Add to manufacturing tracker
         </Button>
-        {!hasMaterial && (
+        {!isEligible && (
           <p className="text-muted-foreground text-xs">
-            Set the material on this part in Onshape to add it to the
-            manufacturing tracker.
+            {!part?.material?.displayName
+              ? "Set the material on this part in Onshape to add it to the manufacturing tracker."
+              : !part?.partNumber
+                ? "Set the part number on this part in Onshape to add it to the manufacturing tracker."
+                : "This part cannot be added to the manufacturing tracker."}
           </p>
         )}
         {result && !result.success && result.error && (

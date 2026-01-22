@@ -1,27 +1,31 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "~/components/ui/card";
-import { Skeleton } from "~/components/ui/skeleton";
-import { Box, AlertCircle } from "lucide-react";
-import { PartCardSkeleton } from "~/components/mfg/PartCardSkeleton";
-import { PartCard } from "~/components/mfg/PartCard";
+import { format } from "date-fns";
+import { AlertCircle, Box } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import type { BulkReleaseFormData } from "~/components/mfg/BulkReleaseDialog";
+import { BulkReleaseDialog } from "~/components/mfg/BulkReleaseDialog";
 import { ErrorDisplay } from "~/components/mfg/ErrorDisplay";
-import { OnshapeConnectorToolbar } from "./OnshapeConnectorToolbar";
-import { Separator } from "~/components/ui/separator";
+import { PartCard } from "~/components/mfg/PartCard";
+import { PartCardSkeleton } from "~/components/mfg/PartCardSkeleton";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
-import { useState } from "react";
+import { Card, CardContent } from "~/components/ui/card";
+import { Separator } from "~/components/ui/separator";
+import { Skeleton } from "~/components/ui/skeleton";
+import { kanbanQueryKeys } from "~/lib/kanbanApi/queries";
 import { usePartsData } from "./hooks/usePartsData";
 import { usePartsSearch } from "./hooks/usePartsSearch";
 import {
-  usePartsSort,
   type SortBy,
   type SortDirection,
+  usePartsSort,
 } from "./hooks/usePartsSort";
-import { getPartsQueryKey } from "./utils/partsQuery";
-import { kanbanQueryKeys } from "~/lib/kanbanApi/queries";
+import { OnshapeConnectorToolbar } from "./OnshapeConnectorToolbar";
 import type { PartsPageSearchParams } from "./page";
+import { isPartEligibleForRelease } from "./utils/partEligibility";
+import { getPartsQueryKey } from "./utils/partsQuery";
 
 interface MfgPartsClientProps {
   queryParams: PartsPageSearchParams;
@@ -39,6 +43,18 @@ export function MfgPartsClient({
   const queryClient = useQueryClient();
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  // Selection state management
+  const [selectedPartKeys, setSelectedPartKeys] = useState<Set<string>>(
+    new Set()
+  );
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(
+    null
+  );
+
+  // Bulk release state
+  const [bulkReleaseDialogOpen, setBulkReleaseDialogOpen] = useState(false);
+  const [isBulkReleasing, setIsBulkReleasing] = useState(false);
 
   // Fetch all data using unified hook
   const {
@@ -66,11 +82,286 @@ export function MfgPartsClient({
     columnById,
   });
 
+  // Check eligibility for selected parts
+  const selectedPartsInfo = useMemo(() => {
+    if (selectedPartKeys.size === 0) {
+      return {
+        selectedParts: [],
+        eligibleParts: [],
+        ineligibleParts: [],
+        allEligible: true,
+      };
+    }
+
+    const selectedParts = sortedParts.filter((part) => {
+      const partKey =
+        part.partId ||
+        part.id ||
+        part.partIdentity ||
+        `${part.name || "unknown"}-${part.partNumber || "no-number"}`;
+      return selectedPartKeys.has(partKey);
+    });
+
+    const eligibleParts: Array<{
+      part: (typeof sortedParts)[0];
+      partKey: string;
+      matchingCard: ReturnType<typeof cardByPartNumber.get>;
+      thumbnailUrl?: string;
+      onshapeParams?: {
+        documentId: string;
+        instanceType: string;
+        instanceId: string;
+        elementId: string;
+      };
+      partId: string;
+    }> = [];
+    const ineligibleParts: Array<{
+      part: (typeof sortedParts)[0];
+      partKey: string;
+      reason: string;
+    }> = [];
+
+    selectedParts.forEach((part) => {
+      const partKey =
+        part.partId ||
+        part.id ||
+        part.partIdentity ||
+        `${part.name || "unknown"}-${part.partNumber || "no-number"}`;
+      const matchingCard = part.partNumber
+        ? cardByPartNumber.get(part.partNumber)
+        : undefined;
+
+      const isEligible = isPartEligibleForRelease(part, matchingCard);
+
+      if (isEligible) {
+        // Extract thumbnail URL
+        const thumbnailUrl =
+          part.thumbnailInfo?.sizes?.find((s) => s.size === "300x300")?.href ||
+          part.thumbnailInfo?.sizes?.[0]?.href ||
+          part.thumbnailInfo?.sizes?.find((s) => s.size === "600x340")?.href;
+
+        // Extract onshape params
+        const onshapeParams = queryParams.documentId
+          ? {
+              documentId: queryParams.documentId,
+              instanceType: queryParams.instanceType,
+              instanceId: queryParams.instanceId || "",
+              elementId: queryParams.elementId || "",
+            }
+          : undefined;
+
+        const partId = part.partId || part.id || "";
+
+        eligibleParts.push({
+          part,
+          partKey,
+          matchingCard,
+          thumbnailUrl,
+          onshapeParams,
+          partId,
+        });
+      } else {
+        let reason = "Unknown reason";
+        if (!part.material?.displayName) {
+          reason = "Missing material";
+        } else if (!part.partNumber) {
+          reason = "Missing part number";
+        } else if (matchingCard) {
+          reason = "Already in manufacturing tracker";
+        }
+
+        ineligibleParts.push({
+          part,
+          partKey,
+          reason,
+        });
+      }
+    });
+
+    return {
+      selectedParts,
+      eligibleParts,
+      ineligibleParts,
+      allEligible: ineligibleParts.length === 0 && eligibleParts.length > 0,
+    };
+  }, [selectedPartKeys, sortedParts, cardByPartNumber, queryParams]);
+
+  // Selection handler function
+  const handlePartSelect = useCallback(
+    (
+      e: React.MouseEvent,
+      partKey: string,
+      index: number,
+      allPartKeys: string[]
+    ) => {
+      e.stopPropagation();
+
+      const isShiftClick = e.shiftKey;
+      const isModifierClick = e.metaKey || e.ctrlKey;
+
+      setSelectedPartKeys((prev) => {
+        const newSelection = new Set(prev);
+
+        if (isShiftClick && lastSelectedIndex !== null) {
+          // Range selection: select all parts between lastSelectedIndex and current index
+          const startIndex = Math.min(lastSelectedIndex, index);
+          const endIndex = Math.max(lastSelectedIndex, index);
+
+          for (let i = startIndex; i <= endIndex; i++) {
+            if (allPartKeys[i]) {
+              newSelection.add(allPartKeys[i]);
+            }
+          }
+        } else {
+          // Normal click or modifier click: toggle the current card
+          if (newSelection.has(partKey)) {
+            newSelection.delete(partKey);
+          } else {
+            newSelection.add(partKey);
+          }
+        }
+
+        return newSelection;
+      });
+
+      // Update last selected index
+      setLastSelectedIndex(index);
+    },
+    [lastSelectedIndex]
+  );
+
   const handleRefresh = () => {
     // Invalidate all relevant queries to trigger refetch
     queryClient.invalidateQueries({ queryKey: kanbanQueryKeys.cards() });
     queryClient.invalidateQueries({ queryKey: kanbanQueryKeys.columns() });
     queryClient.invalidateQueries({ queryKey: getPartsQueryKey(queryParams) });
+  };
+
+  // Bulk release handler
+  const handleBulkRelease = async (formData: BulkReleaseFormData) => {
+    setIsBulkReleasing(true);
+    setBulkReleaseDialogOpen(false);
+
+    const results: Array<{
+      partKey: string;
+      success: boolean;
+      error?: string;
+    }> = [];
+
+    // Process each eligible part
+    for (const eligiblePart of selectedPartsInfo.eligibleParts) {
+      const partQuantities = formData.partQuantities.find(
+        (pq: {
+          partKey: string;
+          quantityPerRobot: number | "";
+          quantityToMake: number | "";
+        }) => pq.partKey === eligiblePart.partKey
+      );
+
+      if (!partQuantities) {
+        results.push({
+          partKey: eligiblePart.partKey,
+          success: false,
+          error: "Missing quantity data",
+        });
+        continue;
+      }
+
+      const submitFormData = new FormData();
+      submitFormData.append("action", "addCard");
+      submitFormData.append("partNumber", eligiblePart.part.partNumber || "");
+
+      // Add process IDs (common for all parts)
+      formData.processIds.forEach((processId: string) => {
+        submitFormData.append("processIds", processId);
+      });
+
+      // Add quantities (individual per part)
+      submitFormData.append(
+        "quantityPerRobot",
+        String(partQuantities.quantityPerRobot)
+      );
+      submitFormData.append(
+        "quantityToMake",
+        String(partQuantities.quantityToMake)
+      );
+
+      // Add due date if provided (common for all parts)
+      if (formData.dueDate) {
+        submitFormData.append(
+          "dueDate",
+          format(formData.dueDate, "yyyy-MM-dd")
+        );
+      }
+
+      // Add onshape params if available
+      if (eligiblePart.onshapeParams) {
+        submitFormData.append(
+          "documentId",
+          eligiblePart.onshapeParams.documentId
+        );
+        submitFormData.append(
+          "instanceType",
+          eligiblePart.onshapeParams.instanceType
+        );
+        submitFormData.append(
+          "instanceId",
+          eligiblePart.onshapeParams.instanceId
+        );
+        submitFormData.append(
+          "elementId",
+          eligiblePart.onshapeParams.elementId
+        );
+        submitFormData.append("partId", eligiblePart.partId);
+      }
+
+      // Add thumbnail URL if available
+      if (eligiblePart.thumbnailUrl) {
+        submitFormData.append("rawThumbnailUrl", eligiblePart.thumbnailUrl);
+      }
+
+      try {
+        const response = await fetch("/api/mfg/parts/actions", {
+          method: "POST",
+          body: submitFormData,
+        });
+        const data = await response.json();
+        results.push({
+          partKey: eligiblePart.partKey,
+          success: data.success,
+          error: data.error,
+        });
+      } catch (error) {
+        results.push({
+          partKey: eligiblePart.partKey,
+          success: false,
+          error: "Failed to add card",
+        });
+      }
+    }
+
+    setIsBulkReleasing(false);
+
+    // Invalidate queries to refresh UI
+    queryClient.invalidateQueries({ queryKey: kanbanQueryKeys.cards() });
+    queryClient.invalidateQueries({ queryKey: kanbanQueryKeys.columns() });
+    queryClient.invalidateQueries({ queryKey: getPartsQueryKey(queryParams) });
+
+    // Clear selection after successful release
+    const allSucceeded = results.every((r) => r.success);
+    if (allSucceeded) {
+      setSelectedPartKeys(new Set());
+      setLastSelectedIndex(null);
+    }
+
+    // Log results (could show a toast notification here)
+    const successCount = results.filter((r) => r.success).length;
+    const failureCount = results.filter((r) => !r.success).length;
+    if (failureCount > 0) {
+      console.warn(
+        `Bulk release completed: ${successCount} succeeded, ${failureCount} failed`
+      );
+    }
   };
 
   // Determine if we should show loading state
@@ -167,6 +458,45 @@ export function MfgPartsClient({
 
         <Separator />
 
+        {/* Bulk Release UI */}
+        {selectedPartKeys.size > 0 && (
+          <>
+            {selectedPartsInfo.allEligible ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setBulkReleaseDialogOpen(true)}
+                  disabled={isBulkReleasing}
+                >
+                  Release {selectedPartKeys.size} part
+                  {selectedPartKeys.size !== 1 ? "s" : ""} to manufacturing
+                </Button>
+                {isBulkReleasing && (
+                  <span className="text-muted-foreground text-sm">
+                    Releasing parts...
+                  </span>
+                )}
+              </div>
+            ) : (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Some parts are not eligible</AlertTitle>
+                <AlertDescription>
+                  {selectedPartsInfo.ineligibleParts.length} card
+                  {selectedPartsInfo.ineligibleParts.length !== 1
+                    ? "s"
+                    : ""}{" "}
+                  {selectedPartsInfo.ineligibleParts.length !== 1
+                    ? "are"
+                    : "is"}{" "}
+                  not eligible for release. Please ensure all selected parts
+                  have a material, part number, and are not already in the
+                  manufacturing tracker.
+                </AlertDescription>
+              </Alert>
+            )}
+          </>
+        )}
+
         {/* Parts List */}
         {parts && parts.length === 0 && !displayError && (
           <Card>
@@ -201,7 +531,7 @@ export function MfgPartsClient({
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {sortedParts.map((part) => {
+                {sortedParts.map((part, index) => {
                   // Generate a stable key - prefer partId, fallback to id, then partIdentity
                   const partKey =
                     part.partId ||
@@ -217,6 +547,15 @@ export function MfgPartsClient({
                     ? columnById.get(matchingCard.column_id)
                     : undefined;
 
+                  // Generate all part keys for range selection
+                  const allPartKeys = sortedParts.map(
+                    (p) =>
+                      p.partId ||
+                      p.id ||
+                      p.partIdentity ||
+                      `${p.name || "unknown"}-${p.partNumber || "no-number"}`
+                  );
+
                   return (
                     <PartCard
                       key={partKey}
@@ -224,6 +563,12 @@ export function MfgPartsClient({
                       queryParams={queryParams}
                       matchingCard={matchingCard}
                       currentColumn={currentColumn}
+                      isSelected={selectedPartKeys.has(partKey)}
+                      onSelect={(e) =>
+                        handlePartSelect(e, partKey, index, allPartKeys)
+                      }
+                      partKey={partKey}
+                      index={index}
                     />
                   );
                 })}
@@ -231,6 +576,15 @@ export function MfgPartsClient({
             )}
           </div>
         )}
+
+        {/* Bulk Release Dialog */}
+        <BulkReleaseDialog
+          open={bulkReleaseDialogOpen}
+          onOpenChange={setBulkReleaseDialogOpen}
+          selectedParts={selectedPartsInfo.eligibleParts}
+          onSubmit={handleBulkRelease}
+          isSubmitting={isBulkReleasing}
+        />
       </div>
     </main>
   );
