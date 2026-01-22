@@ -4,8 +4,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { AlertCircle, Box } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import type { BulkReleaseFormData } from "~/components/mfg/BulkReleaseDialog";
-import { BulkReleaseDialog } from "~/components/mfg/BulkReleaseDialog";
+import {
+  BulkReleaseDialog,
+  BulkReleaseFormData,
+} from "~/components/mfg/BulkReleaseDialog";
 import { ErrorDisplay } from "~/components/mfg/ErrorDisplay";
 import { PartCard } from "~/components/mfg/PartCard";
 import { PartCardSkeleton } from "~/components/mfg/PartCardSkeleton";
