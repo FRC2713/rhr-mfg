@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
@@ -34,6 +34,7 @@ interface KanbanColumnProps {
   isDraggingCard?: boolean;
   hideImages?: boolean;
   usersMap: Map<string, UserRow>;
+  isLastColumn?: boolean;
 }
 
 export function KanbanColumn({
@@ -45,9 +46,29 @@ export function KanbanColumn({
   isDraggingCard = false,
   hideImages = false,
   usersMap,
+  isLastColumn = false,
 }: KanbanColumnProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Filter cards for the last column (Done) - only show cards from last 24 hours
+  const { filteredCards, olderCardsCount } = useMemo(() => {
+    if (!isLastColumn) {
+      return { filteredCards: cards, olderCardsCount: 0 };
+    }
+
+    const now = Date.now();
+    const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+
+    const filtered = cards.filter((card) => {
+      const cardUpdated = new Date(card.date_updated).getTime();
+      return cardUpdated > twentyFourHoursAgo;
+    });
+
+    const olderCount = cards.length - filtered.length;
+
+    return { filteredCards: filtered, olderCardsCount: olderCount };
+  }, [cards, isLastColumn]);
 
   const {
     attributes,
@@ -115,12 +136,13 @@ export function KanbanColumn({
             <KanbanColumnHeader
               title={column.title}
               onRename={handleRename}
-              isEditing={isEditing}
-              onEditStart={() => setIsEditing(true)}
+              isEditing={isEditing && !isLastColumn}
+              onEditStart={() => !isLastColumn && setIsEditing(true)}
               onEditEnd={() => setIsEditing(false)}
+              isReadOnly={isLastColumn}
             />
             <Badge variant="secondary" className="text-xs tabular-nums">
-              {cards.length}
+              {isLastColumn ? filteredCards.length : cards.length}
             </Badge>
           </div>
 
@@ -138,18 +160,24 @@ export function KanbanColumn({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                  <Pencil className="mr-2 size-4" />
-                  Rename column
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 size-4" />
-                  Delete column
-                </DropdownMenuItem>
+                {!isLastColumn && (
+                  <>
+                    <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                      <Pencil className="mr-2 size-4" />
+                      Rename column
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                {!isLastColumn && (
+                  <DropdownMenuItem
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 size-4" />
+                    Delete column
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -158,10 +186,11 @@ export function KanbanColumn({
         {/* Cards Container */}
         <KanbanColumnCardContainer
           columnName={column.title}
-          cards={cards}
+          cards={filteredCards}
           isDraggingCard={isDraggingCard}
           hideImages={hideImages}
           usersMap={usersMap}
+          olderCardsCount={isLastColumn ? olderCardsCount : 0}
         />
       </div>
 

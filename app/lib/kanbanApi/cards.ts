@@ -167,9 +167,25 @@ export async function updateCard(
   cardId: string,
   updates: Partial<Omit<KanbanCardRow, "id" | "date_created">>
 ): Promise<KanbanCardRow> {
+  // If column_id is being updated, also update date_updated to track when card entered the column
+  const finalUpdates = { ...updates };
+  if (updates.column_id !== undefined) {
+    // Fetch current card to check if column_id is actually changing
+    const { data: currentCard } = await supabase
+      .from("kanban_cards")
+      .select("column_id")
+      .eq("id", cardId)
+      .single();
+
+    // Only update date_updated if column_id is actually changing
+    if (currentCard && currentCard.column_id !== updates.column_id) {
+      finalUpdates.date_updated = new Date().toISOString();
+    }
+  }
+
   const { data, error } = await supabase
     .from("kanban_cards")
-    .update(updates)
+    .update(finalUpdates)
     .eq("id", cardId)
     .select()
     .single();

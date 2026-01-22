@@ -1,6 +1,8 @@
-import { PlusCircle, SquareDashedKanban } from "lucide-react";
+import { PlusCircle, SquareDashedKanban, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { KanbanCardRow, UserRow } from "~/lib/supabase/database.types";
 import { KanbanCard } from "../cards/KanbanCard";
+import { Button } from "~/components/ui/button";
 
 interface KanbanColumnCardContainerProps {
   columnName: string;
@@ -8,6 +10,7 @@ interface KanbanColumnCardContainerProps {
   isDraggingCard?: boolean;
   hideImages?: boolean;
   usersMap: Map<string, UserRow>;
+  olderCardsCount?: number;
 }
 
 export function KanbanColumnCardContainer({
@@ -16,7 +19,10 @@ export function KanbanColumnCardContainer({
   isDraggingCard = false,
   hideImages = false,
   usersMap,
+  olderCardsCount = 0,
 }: KanbanColumnCardContainerProps) {
+  const router = useRouter();
+
   if (isDraggingCard) {
     return (
       <div className="border-primary/20 flex h-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed transition-colors">
@@ -25,7 +31,7 @@ export function KanbanColumnCardContainer({
       </div>
     );
   }
-  if (cards.length === 0) {
+  if (cards.length === 0 && olderCardsCount === 0) {
     return (
       <div className="border-secondary/20 flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors">
         <SquareDashedKanban className="text-muted-foreground/50 size-6" />
@@ -44,6 +50,18 @@ export function KanbanColumnCardContainer({
           usersMap={usersMap}
         />
       ))}
+      {olderCardsCount > 0 && (
+        <Button
+          variant="outline"
+          className="border-dashed hover:bg-muted/50 flex w-full items-center justify-center gap-2 py-6"
+          onClick={() => router.push("/kanban/done")}
+        >
+          <span className="text-sm font-medium">
+            View {olderCardsCount} older card{olderCardsCount !== 1 ? "s" : ""}
+          </span>
+          <ArrowRight className="size-4" />
+        </Button>
+      )}
     </div>
   );
 }

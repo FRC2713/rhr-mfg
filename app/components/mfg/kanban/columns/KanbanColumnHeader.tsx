@@ -7,6 +7,7 @@ interface KanbanColumnHeaderProps {
   isEditing?: boolean;
   onEditStart?: () => void;
   onEditEnd?: () => void;
+  isReadOnly?: boolean;
 }
 
 export function KanbanColumnHeader({
@@ -15,6 +16,7 @@ export function KanbanColumnHeader({
   isEditing: externalIsEditing,
   onEditStart,
   onEditEnd,
+  isReadOnly = false,
 }: KanbanColumnHeaderProps) {
   const [internalIsEditing, setInternalIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(title);
@@ -86,6 +88,14 @@ export function KanbanColumnHeader({
         onKeyDown={handleKeyDown}
         className="bg-background h-7 font-semibold"
       />
+    );
+  }
+
+  if (isReadOnly) {
+    return (
+      <div className="flex-1 truncate text-left font-semibold">
+        {title}
+      </div>
     );
   }
 

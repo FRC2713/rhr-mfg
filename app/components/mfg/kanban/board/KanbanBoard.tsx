@@ -1,38 +1,38 @@
-import { useState, useCallback, useMemo } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import {
-  DndContext,
   closestCenter,
+  DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
-  DragOverlay,
 } from "@dnd-kit/core";
-import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import {
   arrayMove,
+  horizontalListSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
-  horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Columns3, Loader2, Plus } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Columns3, Plus } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "~/components/ui/button";
-import { Badge } from "~/components/ui/badge";
-import { Skeleton } from "~/components/ui/skeleton";
-import { KanbanColumn } from "../columns/KanbanColumn";
-import { KanbanCard as KanbanCardComponent } from "../cards/KanbanCard";
 import type {
-  KanbanConfig,
   KanbanColumn as KanbanColumnType,
+  KanbanConfig,
 } from "~/api/kanban/config/route";
-import type { KanbanCardRow, UserRow } from "~/lib/supabase/database.types";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import { Skeleton } from "~/components/ui/skeleton";
 import {
+  kanbanQueryKeys,
   useKanbanCards,
   useUsers,
-  kanbanQueryKeys,
 } from "~/lib/kanbanApi/queries";
+import type { KanbanCardRow, UserRow } from "~/lib/supabase/database.types";
+import { KanbanCard as KanbanCardComponent } from "../cards/KanbanCard";
+import { KanbanColumn } from "../columns/KanbanColumn";
 
 interface KanbanBoardProps {
   config: KanbanConfig;
@@ -61,7 +61,7 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
   const [activeCard, setActiveCard] = useState<KanbanCardRow | null>(null);
   const queryClient = useQueryClient();
-  
+
   // Use columns directly from config
   const columns = config.columns;
 
@@ -172,7 +172,7 @@ export function KanbanBoard({
   // Group cards by column, optionally sorted by process or user
   const cardsByColumn = useMemo(() => {
     const grouped: Record<string, KanbanCardRow[]> = {};
-    
+
     // First, group by column
     cards.forEach((card) => {
       if (!grouped[card.column_id]) {
@@ -198,7 +198,7 @@ export function KanbanBoard({
           const aProcessName = getProcessName(aProcesses);
           const bProcessName = getProcessName(bProcesses);
           const processCompare = aProcessName.localeCompare(bProcessName);
-          
+
           // If processes are different, return the comparison
           // Otherwise, continue to next sort criteria
           if (processCompare !== 0) {
@@ -211,7 +211,7 @@ export function KanbanBoard({
           const aAssignee = a.assignee || "zzz_Unassigned";
           const bAssignee = b.assignee || "zzz_Unassigned";
           const userCompare = aAssignee.localeCompare(bAssignee);
-          
+
           // If users are different, return the comparison
           // Otherwise, maintain original order
           if (userCompare !== 0) {
@@ -226,7 +226,6 @@ export function KanbanBoard({
 
     return grouped;
   }, [cards, groupByProcess, sortByUser]);
-
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -354,19 +353,27 @@ export function KanbanBoard({
         strategy={horizontalListSortingStrategy}
       >
         <div className="flex h-full gap-3 overflow-x-auto p-3 sm:gap-4 sm:p-6">
-          {columns.map((column) => (
-            <KanbanColumn
-              key={column.id}
-              column={column}
-              cards={cardsByColumn[column.id] || []}
-              onRename={handleRenameColumn}
-              onDelete={handleDeleteColumn}
-              isEditMode={isEditMode}
-              isDraggingCard={activeCard !== null}
-              hideImages={hideImages}
-              usersMap={usersMap}
-            />
-          ))}
+          {columns.map((column, index) => {
+            const isLastColumn = index === columns.length - 1;
+            // Force last column to always be labeled "Done"
+            const displayColumn = isLastColumn
+              ? { ...column, title: "Done" }
+              : column;
+            return (
+              <KanbanColumn
+                key={column.id}
+                column={displayColumn}
+                cards={cardsByColumn[column.id] || []}
+                onRename={handleRenameColumn}
+                onDelete={handleDeleteColumn}
+                isEditMode={isEditMode}
+                isDraggingCard={activeCard !== null}
+                hideImages={hideImages}
+                usersMap={usersMap}
+                isLastColumn={isLastColumn}
+              />
+            );
+          })}
 
           {/* Quick add column button at the end - only in edit mode */}
           {isEditMode && (
