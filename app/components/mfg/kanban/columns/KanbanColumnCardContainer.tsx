@@ -11,6 +11,15 @@ interface KanbanColumnCardContainerProps {
   hideImages?: boolean;
   usersMap: Map<string, UserRow>;
   olderCardsCount?: number;
+  columnId?: string;
+  selectedCardIds?: Set<string>;
+  selectedColumnId?: string | null;
+  onCardSelect?: (
+    cardId: string,
+    columnId: string,
+    cardIndex: number,
+    event: React.MouseEvent
+  ) => void;
 }
 
 export function KanbanColumnCardContainer({
@@ -20,6 +29,10 @@ export function KanbanColumnCardContainer({
   hideImages = false,
   usersMap,
   olderCardsCount = 0,
+  columnId = "",
+  selectedCardIds = new Set(),
+  selectedColumnId = null,
+  onCardSelect,
 }: KanbanColumnCardContainerProps) {
   const router = useRouter();
 
@@ -42,12 +55,16 @@ export function KanbanColumnCardContainer({
 
   return (
     <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2">
-      {cards.map((card) => (
+      {cards.map((card, index) => (
         <KanbanCard
           key={card.id}
           card={card}
           hideImages={hideImages}
           usersMap={usersMap}
+          isSelected={selectedCardIds.has(card.id)}
+          columnId={columnId}
+          cardIndex={index}
+          onSelect={onCardSelect}
         />
       ))}
       {olderCardsCount > 0 && (

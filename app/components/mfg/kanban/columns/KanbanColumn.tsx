@@ -35,6 +35,14 @@ interface KanbanColumnProps {
   hideImages?: boolean;
   usersMap: Map<string, UserRow>;
   isLastColumn?: boolean;
+  selectedCardIds?: Set<string>;
+  selectedColumnId?: string | null;
+  onCardSelect?: (
+    cardId: string,
+    columnId: string,
+    cardIndex: number,
+    event: React.MouseEvent
+  ) => void;
 }
 
 export function KanbanColumn({
@@ -47,6 +55,9 @@ export function KanbanColumn({
   hideImages = false,
   usersMap,
   isLastColumn = false,
+  selectedCardIds = new Set(),
+  selectedColumnId = null,
+  onCardSelect,
 }: KanbanColumnProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -191,6 +202,10 @@ export function KanbanColumn({
           hideImages={hideImages}
           usersMap={usersMap}
           olderCardsCount={isLastColumn ? olderCardsCount : 0}
+          columnId={column.id}
+          selectedCardIds={selectedCardIds}
+          selectedColumnId={selectedColumnId}
+          onCardSelect={onCardSelect}
         />
       </div>
 

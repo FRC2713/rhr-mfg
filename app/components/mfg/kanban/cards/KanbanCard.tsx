@@ -94,12 +94,25 @@ interface KanbanCardProps {
   card: KanbanCardRow & { processes?: ProcessRow[] };
   hideImages?: boolean;
   usersMap: Map<string, UserRow>;
+  isSelected?: boolean;
+  columnId?: string;
+  cardIndex?: number;
+  onSelect?: (
+    cardId: string,
+    columnId: string,
+    cardIndex: number,
+    event: React.MouseEvent
+  ) => void;
 }
 
 export const KanbanCard = memo(function KanbanCard({
   card,
   hideImages = false,
   usersMap,
+  isSelected = false,
+  columnId = "",
+  cardIndex = 0,
+  onSelect,
 }: KanbanCardProps) {
   const [imageError, setImageError] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -186,7 +199,9 @@ export const KanbanCard = memo(function KanbanCard({
           className={`transition-all duration-200 ${
             isDragging
               ? "border-l-primary ring-primary/20 scale-105 rotate-2 shadow-2xl ring-2"
-              : "hover:border-l-primary/50 hover:border-l-4 hover:shadow-md"
+              : isSelected
+                ? "border-l-primary border-l-4 ring-primary/20 ring-2 bg-primary/5"
+                : "hover:border-l-primary/50 hover:border-l-4 hover:shadow-md"
           }`}
         >
           <div className="flex flex-col items-start justify-between gap-2">
@@ -194,6 +209,12 @@ export const KanbanCard = memo(function KanbanCard({
               title={card.title}
               attributes={attributes}
               listeners={listeners}
+              isSelected={isSelected}
+              onCheckboxClick={
+                onSelect
+                  ? (e) => onSelect(card.id, columnId, cardIndex, e)
+                  : undefined
+              }
             />
             <div className="flex w-full justify-center px-2">
               {/* Card Image - Clickable to open drawer */}

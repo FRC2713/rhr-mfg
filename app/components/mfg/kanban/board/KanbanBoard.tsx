@@ -60,6 +60,17 @@ export function KanbanBoard({
   onReorderColumns,
 }: KanbanBoardProps) {
   const [activeCard, setActiveCard] = useState<KanbanCardRow | null>(null);
+  const [draggingCards, setDraggingCards] = useState<KanbanCardRow[]>([]);
+  const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [selectedColumnId, setSelectedColumnId] = useState<string | null>(null);
+  const [lastClickedCardIndex, setLastClickedCardIndex] = useState<
+    number | null
+  >(null);
+  const [lastClickedColumnId, setLastClickedColumnId] = useState<string | null>(
+    null
+  );
   const queryClient = useQueryClient();
 
   // Use columns directly from config
@@ -233,15 +244,53 @@ export function KanbanBoard({
     // Check if we're dragging a card
     const card = cards.find((c) => c.id === active.id);
     if (card) {
-      setActiveCard(card);
+      // Check if this card is selected and in the selected column
+      const isSelected = selectedCardIds.has(card.id);
+      const isInSelectedColumn = selectedColumnId === card.column_id;
+
+      if (isSelected && isInSelectedColumn && selectedCardIds.size > 1) {
+        // Drag all selected cards from the same column
+        const selectedCards = Array.from(selectedCardIds)
+          .map((id) => cards.find((c) => c.id === id))
+          .filter(
+            (c): c is KanbanCardRow =>
+              c !== undefined && c.column_id === card.column_id
+          )
+          .sort((a, b) => {
+            // Maintain order based on their position in the column
+            const columnCards = cardsByColumn[card.column_id] || [];
+            const aIndex = columnCards.findIndex((c) => c.id === a.id);
+            const bIndex = columnCards.findIndex((c) => c.id === b.id);
+            return aIndex - bIndex;
+          });
+        setDraggingCards(selectedCards);
+        setActiveCard(card); // Use the dragged card as the primary one
+      } else {
+        // Drag only this card
+        setDraggingCards([card]);
+        setActiveCard(card);
+      }
     }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    // Clear the active card immediately - dropAnimation={null} prevents animation
+    // Get cards to move - use draggingCards if set, otherwise fall back to single card
+    let cardsToMove: KanbanCardRow[] = [];
+    if (draggingCards.length > 0) {
+      cardsToMove = draggingCards;
+    } else {
+      // Fallback: if draggingCards wasn't set, use the active card
+      const card = cards.find((c) => c.id === active.id);
+      if (card) {
+        cardsToMove = [card];
+      }
+    }
+
+    // Clear the active card and dragging cards immediately - dropAnimation={null} prevents animation
     setActiveCard(null);
+    setDraggingCards([]);
 
     if (!over) return;
 
@@ -249,15 +298,26 @@ export function KanbanBoard({
     const isCard = cards.some((card) => card.id === active.id);
     const isColumn = columns.some((col) => col.id === active.id);
 
-    if (isCard) {
-      // Handle card drag
-      const cardId = active.id as string;
-      let targetColumnId = over.id as string;
+    if (isCard && cardsToMove.length > 0) {
+      // Handle card drag (single or multiple)
+      const targetColumnId = over.id as string;
 
-      // Check if the card is being moved to a different column
-      const card = cards.find((c) => c.id === cardId);
-      if (card && card.column_id !== targetColumnId) {
-        moveCardMutation.mutate({ cardId, columnId: targetColumnId });
+      // Move all cards that are being dragged to the new column
+      const cardsToMoveToNewColumn = cardsToMove.filter(
+        (card) => card.column_id !== targetColumnId
+      );
+
+      // Move all selected cards to the new column
+      cardsToMoveToNewColumn.forEach((card) => {
+        moveCardMutation.mutate({ cardId: card.id, columnId: targetColumnId });
+      });
+
+      // Clear selection after moving
+      if (cardsToMoveToNewColumn.length > 0) {
+        setSelectedCardIds(new Set());
+        setSelectedColumnId(null);
+        setLastClickedCardIndex(null);
+        setLastClickedColumnId(null);
       }
     } else if (isColumn) {
       // Handle column drag (reordering columns) - only in edit mode
@@ -293,6 +353,101 @@ export function KanbanBoard({
     },
     [onDeleteColumn]
   );
+
+  // Selection handlers
+  const handleCardSelect = useCallback(
+    (
+      cardId: string,
+      columnId: string,
+      cardIndex: number,
+      event: React.MouseEvent
+    ) => {
+      event.stopPropagation();
+
+      // If selecting from a different column, clear previous selection
+      if (selectedColumnId !== null && selectedColumnId !== columnId) {
+        setSelectedCardIds(new Set([cardId]));
+        setSelectedColumnId(columnId);
+        setLastClickedCardIndex(cardIndex);
+        setLastClickedColumnId(columnId);
+        return;
+      }
+
+      const isShiftPressed = event.shiftKey;
+      const isModifierPressed = event.metaKey || event.ctrlKey;
+
+      if (
+        isShiftPressed &&
+        lastClickedCardIndex !== null &&
+        lastClickedColumnId === columnId
+      ) {
+        // Range selection: select all cards between last clicked and current
+        const columnCards = cardsByColumn[columnId] || [];
+        const startIndex = Math.min(lastClickedCardIndex, cardIndex);
+        const endIndex = Math.max(lastClickedCardIndex, cardIndex);
+
+        const newSelectedIds = new Set(selectedCardIds);
+        for (let i = startIndex; i <= endIndex; i++) {
+          if (columnCards[i]) {
+            newSelectedIds.add(columnCards[i].id);
+          }
+        }
+
+        setSelectedCardIds(newSelectedIds);
+        setSelectedColumnId(columnId);
+        setLastClickedCardIndex(cardIndex);
+        setLastClickedColumnId(columnId);
+      } else if (isModifierPressed) {
+        // Toggle selection
+        const newSelectedIds = new Set(selectedCardIds);
+        if (newSelectedIds.has(cardId)) {
+          newSelectedIds.delete(cardId);
+          if (newSelectedIds.size === 0) {
+            setSelectedColumnId(null);
+            setLastClickedCardIndex(null);
+            setLastClickedColumnId(null);
+          }
+        } else {
+          newSelectedIds.add(cardId);
+          setSelectedColumnId(columnId);
+        }
+        setSelectedCardIds(newSelectedIds);
+        setLastClickedCardIndex(cardIndex);
+        setLastClickedColumnId(columnId);
+      } else {
+        // Normal click: toggle this card individually
+        const newSelectedIds = new Set(selectedCardIds);
+        if (newSelectedIds.has(cardId)) {
+          newSelectedIds.delete(cardId);
+          if (newSelectedIds.size === 0) {
+            setSelectedColumnId(null);
+            setLastClickedCardIndex(null);
+            setLastClickedColumnId(null);
+          }
+        } else {
+          newSelectedIds.add(cardId);
+          setSelectedColumnId(columnId);
+        }
+        setSelectedCardIds(newSelectedIds);
+        setLastClickedCardIndex(cardIndex);
+        setLastClickedColumnId(columnId);
+      }
+    },
+    [
+      selectedCardIds,
+      selectedColumnId,
+      lastClickedCardIndex,
+      lastClickedColumnId,
+      cardsByColumn,
+    ]
+  );
+
+  const clearSelection = useCallback(() => {
+    setSelectedCardIds(new Set());
+    setSelectedColumnId(null);
+    setLastClickedCardIndex(null);
+    setLastClickedColumnId(null);
+  }, []);
 
   // Empty state - show when no columns
   if (columns.length === 0) {
@@ -371,6 +526,9 @@ export function KanbanBoard({
                 hideImages={hideImages}
                 usersMap={usersMap}
                 isLastColumn={isLastColumn}
+                selectedCardIds={selectedCardIds}
+                selectedColumnId={selectedColumnId}
+                onCardSelect={handleCardSelect}
               />
             );
           })}
@@ -389,7 +547,36 @@ export function KanbanBoard({
       </SortableContext>
 
       <DragOverlay dropAnimation={null}>
-        {activeCard ? (
+        {draggingCards.length > 0 ? (
+          draggingCards.length === 1 ? (
+            <div className="rotate-3 opacity-95" style={{ width: "300px" }}>
+              <KanbanCardComponent
+                card={draggingCards[0]}
+                usersMap={usersMap}
+              />
+            </div>
+          ) : (
+            <div className="relative" style={{ width: "300px" }}>
+              {draggingCards.map((card, index) => (
+                <div
+                  key={card.id}
+                  className="absolute opacity-95"
+                  style={{
+                    width: "300px",
+                    transform: `rotate(${(index - (draggingCards.length - 1) / 2) * 2}deg) translateY(${index * 8}px) translateX(${(index - (draggingCards.length - 1) / 2) * 4}px)`,
+                    zIndex: draggingCards.length - index,
+                  }}
+                >
+                  <KanbanCardComponent card={card} usersMap={usersMap} />
+                </div>
+              ))}
+              <div className="bg-primary text-primary-foreground absolute -bottom-3 left-1/2 z-50 -translate-x-1/2 rounded-full px-2 py-1 text-xs font-medium whitespace-nowrap shadow-lg">
+                {draggingCards.length} card
+                {draggingCards.length !== 1 ? "s" : ""}
+              </div>
+            </div>
+          )
+        ) : activeCard ? (
           <div className="rotate-3 opacity-95" style={{ width: "300px" }}>
             <KanbanCardComponent card={activeCard} usersMap={usersMap} />
           </div>
