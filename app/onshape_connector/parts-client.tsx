@@ -11,6 +11,7 @@ import {
 import { ErrorDisplay } from "~/components/mfg/ErrorDisplay";
 import { PartCard } from "~/components/mfg/PartCard";
 import { PartCardSkeleton } from "~/components/mfg/PartCardSkeleton";
+import { PartListElement } from "~/components/mfg/PartListElement";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
@@ -45,6 +46,7 @@ export function MfgPartsClient({
   const queryClient = useQueryClient();
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
 
   // Selection state management
   const [selectedPartKeys, setSelectedPartKeys] = useState<Set<string>>(
@@ -455,6 +457,8 @@ export function MfgPartsClient({
             resultCount={sortedParts.length}
             totalCount={parts.length}
             isSearching={isSearching}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
           />
         )}
 
@@ -531,7 +535,7 @@ export function MfgPartsClient({
                   </div>
                 </CardContent>
               </Card>
-            ) : (
+            ) : viewMode === "cards" ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {sortedParts.map((part, index) => {
                   // Generate a stable key - prefer partId, fallback to id, then partIdentity
@@ -560,6 +564,50 @@ export function MfgPartsClient({
 
                   return (
                     <PartCard
+                      key={partKey}
+                      part={part}
+                      queryParams={queryParams}
+                      matchingCard={matchingCard}
+                      currentColumn={currentColumn}
+                      isSelected={selectedPartKeys.has(partKey)}
+                      onSelect={(e) =>
+                        handlePartSelect(e, partKey, index, allPartKeys)
+                      }
+                      partKey={partKey}
+                      index={index}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {sortedParts.map((part, index) => {
+                  // Generate a stable key - prefer partId, fallback to id, then partIdentity
+                  const partKey =
+                    part.partId ||
+                    part.id ||
+                    part.partIdentity ||
+                    `${part.name || "unknown"}-${part.partNumber || "no-number"}`;
+
+                  // Find matching card and column using lookup maps (O(1) access)
+                  const matchingCard = part.partNumber
+                    ? cardByPartNumber.get(part.partNumber)
+                    : undefined;
+                  const currentColumn = matchingCard?.column_id
+                    ? columnById.get(matchingCard.column_id)
+                    : undefined;
+
+                  // Generate all part keys for range selection
+                  const allPartKeys = sortedParts.map(
+                    (p) =>
+                      p.partId ||
+                      p.id ||
+                      p.partIdentity ||
+                      `${p.name || "unknown"}-${p.partNumber || "no-number"}`
+                  );
+
+                  return (
+                    <PartListElement
                       key={partKey}
                       part={part}
                       queryParams={queryParams}

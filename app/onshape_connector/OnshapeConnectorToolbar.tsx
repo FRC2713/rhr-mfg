@@ -5,6 +5,8 @@ import {
   X,
   ArrowUp,
   ArrowDown,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { Input } from "~/components/ui/input";
 import {
@@ -35,6 +37,8 @@ interface OnshapeConnectorToolbarProps {
   resultCount?: number;
   totalCount?: number;
   isSearching?: boolean;
+  viewMode?: "cards" | "list";
+  onViewModeChange?: (mode: "cards" | "list") => void;
 }
 
 export function OnshapeConnectorToolbar({
@@ -49,6 +53,8 @@ export function OnshapeConnectorToolbar({
   resultCount,
   totalCount,
   isSearching = false,
+  viewMode = "cards",
+  onViewModeChange,
 }: OnshapeConnectorToolbarProps) {
   const handleSortDirectionToggle = () => {
     onSortDirectionChange(sortDirection === "asc" ? "desc" : "asc");
@@ -128,6 +134,23 @@ export function OnshapeConnectorToolbar({
               className="h-10 w-10"
             >
               <ArrowUpDown className="h-4 w-4" />
+            </Button>
+          )}
+          {onViewModeChange && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() =>
+                onViewModeChange(viewMode === "cards" ? "list" : "cards")
+              }
+              title={`Switch to ${viewMode === "cards" ? "list" : "cards"} view`}
+              className="h-10 w-10"
+            >
+              {viewMode === "cards" ? (
+                <List className="h-4 w-4" />
+              ) : (
+                <LayoutGrid className="h-4 w-4" />
+              )}
             </Button>
           )}
           <Button
