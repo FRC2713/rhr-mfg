@@ -29,6 +29,7 @@ import { OnshapeConnectorToolbar } from "./OnshapeConnectorToolbar";
 import type { PartsPageSearchParams } from "./page";
 import { isPartEligibleForRelease } from "./utils/partEligibility";
 import { getPartsQueryKey } from "./utils/partsQuery";
+import { extractVersionId, getPartVersionKey } from "./utils/versionUtils";
 
 interface MfgPartsClientProps {
   queryParams: PartsPageSearchParams;
@@ -97,12 +98,13 @@ export function MfgPartsClient({
       };
     }
 
+    const versionId = extractVersionId(queryParams);
     const selectedParts = sortedParts.filter((part) => {
       const partKey =
         part.partId ||
         part.id ||
         part.partIdentity ||
-        `${part.name || "unknown"}-${part.partNumber || "no-number"}`;
+        `${part.name || "unknown"}-${part.partNumber || "no-number"}-${versionId}`;
       return selectedPartKeys.has(partKey);
     });
 
@@ -130,9 +132,20 @@ export function MfgPartsClient({
         part.partId ||
         part.id ||
         part.partIdentity ||
-        `${part.name || "unknown"}-${part.partNumber || "no-number"}`;
+        `${part.name || "unknown"}-${part.partNumber || "no-number"}-${versionId}`;
+      // Match using composite key (partNumber::versionId)
       const matchingCard = part.partNumber
-        ? cardByPartNumber.get(part.partNumber)
+        ? (() => {
+            const versionId = extractVersionId(queryParams);
+            const compositeKey = getPartVersionKey(part.partNumber, versionId);
+            // Try composite key first
+            let card = cardByPartNumber.get(compositeKey);
+            // Fallback to partNumber only for backward compatibility with old cards
+            if (!card) {
+              card = cardByPartNumber.get(part.partNumber);
+            }
+            return card;
+          })()
         : undefined;
 
       const isEligible = isPartEligibleForRelease(part, matchingCard);
@@ -538,28 +551,42 @@ export function MfgPartsClient({
             ) : viewMode === "cards" ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {sortedParts.map((part, index) => {
-                  // Generate a stable key - prefer partId, fallback to id, then partIdentity
+                  // Generate a stable key - include version ID for uniqueness across versions
+                  const versionId = extractVersionId(queryParams);
                   const partKey =
                     part.partId ||
                     part.id ||
                     part.partIdentity ||
-                    `${part.name || "unknown"}-${part.partNumber || "no-number"}`;
+                    `${part.name || "unknown"}-${part.partNumber || "no-number"}-${versionId}`;
 
                   // Find matching card and column using lookup maps (O(1) access)
+                  // Match using composite key (partNumber::versionId)
                   const matchingCard = part.partNumber
-                    ? cardByPartNumber.get(part.partNumber)
+                    ? (() => {
+                        const compositeKey = getPartVersionKey(
+                          part.partNumber,
+                          versionId
+                        );
+                        // Try composite key first
+                        let card = cardByPartNumber.get(compositeKey);
+                        // Fallback to partNumber only for backward compatibility with old cards
+                        if (!card) {
+                          card = cardByPartNumber.get(part.partNumber);
+                        }
+                        return card;
+                      })()
                     : undefined;
                   const currentColumn = matchingCard?.column_id
                     ? columnById.get(matchingCard.column_id)
                     : undefined;
 
-                  // Generate all part keys for range selection
+                  // Generate all part keys for range selection (include version for uniqueness)
                   const allPartKeys = sortedParts.map(
                     (p) =>
                       p.partId ||
                       p.id ||
                       p.partIdentity ||
-                      `${p.name || "unknown"}-${p.partNumber || "no-number"}`
+                      `${p.name || "unknown"}-${p.partNumber || "no-number"}-${versionId}`
                   );
 
                   return (
@@ -582,28 +609,42 @@ export function MfgPartsClient({
             ) : (
               <div className="flex flex-col gap-2">
                 {sortedParts.map((part, index) => {
-                  // Generate a stable key - prefer partId, fallback to id, then partIdentity
+                  // Generate a stable key - include version ID for uniqueness across versions
+                  const versionId = extractVersionId(queryParams);
                   const partKey =
                     part.partId ||
                     part.id ||
                     part.partIdentity ||
-                    `${part.name || "unknown"}-${part.partNumber || "no-number"}`;
+                    `${part.name || "unknown"}-${part.partNumber || "no-number"}-${versionId}`;
 
                   // Find matching card and column using lookup maps (O(1) access)
+                  // Match using composite key (partNumber::versionId)
                   const matchingCard = part.partNumber
-                    ? cardByPartNumber.get(part.partNumber)
+                    ? (() => {
+                        const compositeKey = getPartVersionKey(
+                          part.partNumber,
+                          versionId
+                        );
+                        // Try composite key first
+                        let card = cardByPartNumber.get(compositeKey);
+                        // Fallback to partNumber only for backward compatibility with old cards
+                        if (!card) {
+                          card = cardByPartNumber.get(part.partNumber);
+                        }
+                        return card;
+                      })()
                     : undefined;
                   const currentColumn = matchingCard?.column_id
                     ? columnById.get(matchingCard.column_id)
                     : undefined;
 
-                  // Generate all part keys for range selection
+                  // Generate all part keys for range selection (include version for uniqueness)
                   const allPartKeys = sortedParts.map(
                     (p) =>
                       p.partId ||
                       p.id ||
                       p.partIdentity ||
-                      `${p.name || "unknown"}-${p.partNumber || "no-number"}`
+                      `${p.name || "unknown"}-${p.partNumber || "no-number"}-${versionId}`
                   );
 
                   return (

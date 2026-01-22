@@ -1,29 +1,22 @@
+import { ChevronDownIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
+import type { KanbanColumn } from "~/api/kanban/config/route";
 import { Badge } from "~/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Checkbox } from "~/components/ui/checkbox";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import type { KanbanCardRow } from "~/lib/supabase/database.types";
-import type { KanbanColumn } from "~/api/kanban/config/route";
+import { cn } from "~/lib/utils";
 import type { PartsPageSearchParams } from "~/onshape_connector/page";
-import { PartCardThumbnail } from "./PartCardThumbnail";
-import { PartNumberInput } from "./PartNumberInput";
-import { PartMfgState } from "./PartMfgState";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../ui/collapsible";
-import { Button } from "../ui/button";
-import { ChevronDownIcon, EyeIcon } from "lucide-react";
-import { cn } from "~/lib/utils";
 import { ManufacturingStateBadge } from "./ManufacturingStateBadge";
+import { PartCardThumbnail } from "./PartCardThumbnail";
+import { PartMfgState } from "./PartMfgState";
+import { PartNumberInput } from "./PartNumberInput";
 
 interface PartCardProps {
   part: BtPartMetadataInfo;
@@ -82,7 +75,7 @@ export function PartCard({
     <Card className="transition-shadow hover:shadow-lg">
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-start gap-2 flex-1">
+          <div className="flex flex-1 items-start gap-2">
             {/* Checkbox - Top left */}
             {onSelect && (
               <div
@@ -99,14 +92,14 @@ export function PartCard({
                   // Prevent other interactions when clicking checkbox
                   e.stopPropagation();
                 }}
-                className="flex items-center cursor-pointer z-10 mt-0.5"
+                className="z-10 mt-0.5 flex cursor-pointer items-center"
               >
                 <Checkbox
                   checked={isSelected}
                   onCheckedChange={() => {
                     // Handled by onClick above
                   }}
-                  className="pointer-events-none border-foreground/40 dark:border-foreground/60 bg-background/80 dark:bg-background/60 shadow-sm"
+                  className="border-foreground/40 dark:border-foreground/60 bg-background/80 dark:bg-background/60 pointer-events-none shadow-sm"
                 />
               </div>
             )}
@@ -150,6 +143,7 @@ export function PartCard({
                 onshapeParams={onshapeParams}
                 matchingCard={matchingCard}
                 currentColumn={currentColumn}
+                queryParams={queryParams}
               />
             </CollapsibleContent>
           </Collapsible>

@@ -6,6 +6,7 @@ import { useKanbanCards, useKanbanColumns } from "~/lib/kanbanApi/queries";
 import { useQuery } from "@tanstack/react-query";
 import { getPartsQueryOptions } from "../utils/partsQuery";
 import type { PartsPageSearchParams } from "../page";
+import { getPartVersionKey, getCardVersionId } from "../utils/versionUtils";
 
 interface UsePartsDataOptions {
   queryParams: PartsPageSearchParams;
@@ -45,11 +46,22 @@ export function usePartsData({
   const columns = kanbanColumnsQuery.data || [];
 
   // Create lookup maps for O(1) access
+  // Use composite key (partNumber::versionId) for matching
   const cardByPartNumber = useMemo(() => {
     const map = new Map<string, KanbanCardRow>();
     cards.forEach((card) => {
       if (card.title) {
-        map.set(card.title, card);
+        // Get version ID from card
+        const versionId = getCardVersionId(card);
+        if (versionId) {
+          // Use composite key: partNumber::versionId
+          const compositeKey = getPartVersionKey(card.title, versionId);
+          map.set(compositeKey, card);
+        } else {
+          // Fallback for backward compatibility: use just partNumber
+          // This handles old cards that don't have version_id set
+          map.set(card.title, card);
+        }
       }
     });
     return map;

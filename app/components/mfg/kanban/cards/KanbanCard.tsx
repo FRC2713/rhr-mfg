@@ -119,26 +119,53 @@ export const KanbanCard = memo(function KanbanCard({
   const queryClient = useQueryClient();
 
   // Ensure imageUrl is properly formatted
+  // If missing, rebuild using card's stored version-specific parameters
   const imageUrl = useMemo(() => {
-    if (!card.image_url || hideImages) return undefined;
+    if (hideImages) return undefined;
 
-    // If it's already our proxy endpoint, use as is
-    // This is the format we now store: /api/onshape/thumbnail?url=...
-    if (card.image_url.startsWith("/api/onshape/thumbnail")) {
+    // If we have a stored image_url, use it (it's already version-specific)
+    if (card.image_url) {
+      // If it's already our proxy endpoint, use as is
+      if (card.image_url.startsWith("/api/onshape/thumbnail")) {
+        return card.image_url;
+      }
+
+      // If it's a direct Onshape URL, wrap it in our proxy
+      if (card.image_url.includes("onshape.com")) {
+        return `/api/onshape/thumbnail?url=${encodeURIComponent(card.image_url)}`;
+      }
+
+      // Otherwise assume it's a public URL and use as is
       return card.image_url;
     }
 
-    // If it's a direct Onshape URL, wrap it in our proxy
-    // We check for onshape.com domain to identify direct Onshape URLs
-    // This handles backward compatibility with old cards
-    if (card.image_url.includes("onshape.com")) {
-      return `/api/onshape/thumbnail?url=${encodeURIComponent(card.image_url)}`;
+    // Fallback: rebuild thumbnail URL using card's stored version-specific parameters
+    if (
+      card.onshape_document_id &&
+      card.onshape_instance_id &&
+      card.onshape_element_id &&
+      card.onshape_part_id
+    ) {
+      const wvm =
+        card.onshape_instance_type === "w"
+          ? "w"
+          : card.onshape_instance_type === "v"
+            ? "v"
+            : "m";
+      const thumbnailUrl = `https://cad.onshape.com/api/v10/thumbnails/d/${card.onshape_document_id}/${wvm}/${card.onshape_instance_id}/e/${card.onshape_element_id}/p/${encodeURIComponent(card.onshape_part_id)}?outputFormat=PNG&pixelSize=300`;
+      return `/api/onshape/thumbnail?url=${encodeURIComponent(thumbnailUrl)}`;
     }
 
-    // Otherwise assume it's a public URL and use as is
-    // (backward compatibility for any legacy URLs)
-    return card.image_url;
-  }, [card.image_url]);
+    return undefined;
+  }, [
+    card.image_url,
+    card.onshape_document_id,
+    card.onshape_instance_id,
+    card.onshape_instance_type,
+    card.onshape_element_id,
+    card.onshape_part_id,
+    hideImages,
+  ]);
 
   // Reset error state when imageUrl changes
   useEffect(() => {

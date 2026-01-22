@@ -5,6 +5,8 @@ import { logger } from "~/lib/logger";
 import { onshapeApiRequest } from "~/lib/onshapeApi/auth";
 import { getValidOnshapeTokenFromRequest } from "~/lib/tokenRefresh";
 import type { ActionResponse } from "../utils/types";
+import { extractVersionId } from "../utils/versionUtils";
+import type { PartsPageSearchParams } from "../page";
 
 /**
  * Onshape user response from /users/current endpoint
@@ -187,17 +189,42 @@ export async function handleAddKanbanCard(
   const data = parseResult.data;
 
   try {
+    // Extract version ID from the instance type and ID
+    // Build query params object for version extraction
+    const queryParams: PartsPageSearchParams = {
+      documentId: data.documentId || "",
+      instanceType: (data.instanceType as "w" | "v" | "m") || "w",
+      instanceId: data.instanceId || "",
+      elementId: data.elementId || "",
+      elementType: "PARTSTUDIO", // Default, not used for version extraction
+    };
+    const versionId = extractVersionId(queryParams);
+
     // Build image URL from raw thumbnail URL (same strategy as PartCardThumbnail)
+    // Ensure thumbnail uses version-specific parameters if we need to rebuild it
     let imageUrl = "";
     if (data.rawThumbnailUrl) {
       // Use proxy endpoint for authenticated thumbnail access
+      // The rawThumbnailUrl from Onshape is already version-specific since it comes
+      // from the parts query which uses the version-specific instanceId
       imageUrl = `/api/onshape/thumbnail?url=${encodeURIComponent(data.rawThumbnailUrl)}`;
+    } else if (
+      data.documentId &&
+      data.instanceId &&
+      data.elementId &&
+      data.partId
+    ) {
+      // Fallback: build thumbnail URL using version-specific parameters
+      const wvm = data.instanceType === "w" ? "w" : data.instanceType === "v" ? "v" : "m";
+      const thumbnailUrl = `https://cad.onshape.com/api/v10/thumbnails/d/${data.documentId}/${wvm}/${data.instanceId}/e/${data.elementId}/p/${encodeURIComponent(data.partId)}?outputFormat=PNG&pixelSize=300`;
+      imageUrl = `/api/onshape/thumbnail?url=${encodeURIComponent(thumbnailUrl)}`;
     }
 
     // Get Onshape user ID to store in created_by field
     const createdBy = await fetchOnshapeUserId(request);
 
-    // Create card
+    // Create card with version ID
+    // Keep title as just partNumber - matching will use composite key (partNumber::versionId)
     const card = await createCard({
       title: data.partNumber,
       imageUrl,
@@ -213,6 +240,7 @@ export async function handleAddKanbanCard(
       onshapeInstanceId: data.instanceId,
       onshapeElementId: data.elementId,
       onshapePartId: data.partId,
+      onshapeVersionId: versionId,
     });
 
     return { success: true, data: card };

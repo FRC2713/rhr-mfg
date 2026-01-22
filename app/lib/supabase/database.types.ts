@@ -46,6 +46,7 @@ export interface Database {
           onshape_instance_id: string | null;
           onshape_element_id: string | null;
           onshape_part_id: string | null;
+          onshape_version_id: string | null;
         };
         Insert: {
           id: string;
@@ -66,6 +67,7 @@ export interface Database {
           onshape_instance_id?: string | null;
           onshape_element_id?: string | null;
           onshape_part_id?: string | null;
+          onshape_version_id?: string | null;
         };
         Update: {
           id?: string;
@@ -87,6 +89,7 @@ export interface Database {
           onshape_instance_id?: string | null;
           onshape_element_id?: string | null;
           onshape_part_id?: string | null;
+          onshape_version_id?: string | null;
         };
         Relationships: [];
       };

@@ -103,6 +103,7 @@ export interface CreateCardInput {
   onshapeInstanceId?: string;
   onshapeElementId?: string;
   onshapePartId?: string;
+  onshapeVersionId?: string;
 }
 
 /**
@@ -143,6 +144,7 @@ export async function createCard(
       onshape_instance_id: cardData.onshapeInstanceId ?? null,
       onshape_element_id: cardData.onshapeElementId ?? null,
       onshape_part_id: cardData.onshapePartId ?? null,
+      onshape_version_id: cardData.onshapeVersionId ?? null,
     })
     .select()
     .single();

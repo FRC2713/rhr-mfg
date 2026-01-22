@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import type { KanbanColumn } from "~/api/kanban/config/route";
@@ -9,6 +9,8 @@ import { Button } from "~/components/ui/button";
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import type { KanbanCardRow, ProcessRow } from "~/lib/supabase/database.types";
 import { isPartEligibleForRelease } from "~/onshape_connector/utils/partEligibility";
+import { extractVersionId } from "~/onshape_connector/utils/versionUtils";
+import type { PartsPageSearchParams } from "~/onshape_connector/page";
 import { type AddCardFormData, AddCardDialog } from "./AddCardDialog";
 import { ManufacturingStateBadge } from "./ManufacturingStateBadge";
 import { PartDueDate } from "./PartDueDate";
@@ -27,6 +29,7 @@ interface PartMfgStateProps {
   };
   matchingCard?: KanbanCardRow & { processes?: ProcessRow[] };
   currentColumn?: KanbanColumn;
+  queryParams?: PartsPageSearchParams;
 }
 
 /**
@@ -40,6 +43,7 @@ export function PartMfgState({
   onshapeParams,
   matchingCard,
   currentColumn,
+  queryParams,
 }: PartMfgStateProps) {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,6 +53,33 @@ export function PartMfgState({
     error?: string;
   } | null>(null);
   const hasRevalidatedRef = useRef(false);
+
+  // Get version ID and fetch version info if we have query params
+  const versionId = queryParams ? extractVersionId(queryParams) : null;
+  const versionQuery = useQuery({
+    queryKey: [
+      "onshape-version",
+      queryParams?.documentId,
+      versionId,
+    ],
+    queryFn: async () => {
+      if (!queryParams?.documentId || !versionId) {
+        throw new Error("Missing document ID or version ID");
+      }
+      const params = new URLSearchParams({
+        documentId: queryParams.documentId,
+        versionId: versionId,
+      });
+      const response = await fetch(`/api/onshape/version?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch version");
+      }
+      return response.json();
+    },
+    enabled: !!queryParams?.documentId && !!versionId && queryParams.instanceType === "v",
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 1,
+  });
 
   // Reset revalidation flag when starting a new operation
   useEffect(() => {
@@ -209,6 +240,22 @@ export function PartMfgState({
                   <PartColorChip color={part.appearance?.color} />
                 </td>
               </tr>
+              {versionQuery.data?.name && (
+                <tr>
+                  <td className="text-muted-foreground py-1.5 pr-4 font-medium">
+                    Version
+                  </td>
+                  <td className="py-1.5">
+                    <Badge variant="secondary">
+                      {versionQuery.isLoading
+                        ? "Loading..."
+                        : versionQuery.isError
+                          ? "Unable to load"
+                          : versionQuery.data?.name || "Unknown"}
+                    </Badge>
+                  </td>
+                </tr>
+              )}
             </>
           )}
           <tr>

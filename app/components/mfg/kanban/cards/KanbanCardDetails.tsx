@@ -145,8 +145,26 @@ export function KanbanCardDetails({
   ]);
 
   // Build Onshape document URL if properties are available
+  // Use version_id when available to ensure we link to the correct version
   const onshapeUrl = useMemo(() => {
     if (!hasOnshapeProperties) return null;
+    
+    // Prefer version_id if available - always use it with type 'v' to link to the correct version
+    // When instance_type is 'v', instance_id is also the version ID
+    const versionIdToUse = card.onshape_version_id || 
+      (card.onshape_instance_type === "v" ? card.onshape_instance_id : null);
+    
+    // If we have a version ID, always use it with type 'v' to link to the correct version
+    if (versionIdToUse) {
+      return buildOnshapeDocumentUrl(
+        card.onshape_document_id!,
+        "v", // Always use version type when we have a version ID
+        versionIdToUse,
+        card.onshape_element_id!
+      );
+    }
+    
+    // Fallback to original instance_id and instance_type
     return buildOnshapeDocumentUrl(
       card.onshape_document_id!,
       card.onshape_instance_type!,
@@ -158,8 +176,48 @@ export function KanbanCardDetails({
     card.onshape_document_id,
     card.onshape_instance_type,
     card.onshape_instance_id,
+    card.onshape_version_id,
     card.onshape_element_id,
   ]);
+
+  // Get version ID from card (must be defined before versionQuery)
+  const cardVersionId = useMemo(() => {
+    // Prefer the dedicated version_id field
+    if (card.onshape_version_id) {
+      return card.onshape_version_id;
+    }
+    // Fallback: if instance_type is 'v', use instance_id as version
+    if (card.onshape_instance_type === "v" && card.onshape_instance_id) {
+      return card.onshape_instance_id;
+    }
+    return null;
+  }, [card.onshape_version_id, card.onshape_instance_type, card.onshape_instance_id]);
+
+  // Fetch version information if we have a version ID
+  const versionQuery = useQuery({
+    queryKey: [
+      "onshape-version",
+      card.onshape_document_id,
+      cardVersionId,
+    ],
+    queryFn: async () => {
+      if (!card.onshape_document_id || !cardVersionId) {
+        throw new Error("Missing document ID or version ID");
+      }
+      const params = new URLSearchParams({
+        documentId: card.onshape_document_id,
+        versionId: cardVersionId,
+      });
+      const response = await fetch(`/api/onshape/version?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch version");
+      }
+      return response.json();
+    },
+    enabled: !!card.onshape_document_id && !!cardVersionId,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 1,
+  });
 
   // Memoize hasMeta to avoid recalculating on every render
   const hasMeta = useMemo(
@@ -220,15 +278,33 @@ export function KanbanCardDetails({
     [card.title]
   );
 
-  // Find the matching part by part number (case-insensitive, trimmed)
+  // Find the matching part by part number and version ID
+  // Match by part number first, then verify version if available
   const matchingPart = useMemo(() => {
     if (!partsQuery.data || !normalizedCardTitle) return null;
-    return (
-      partsQuery.data.find(
-        (part) => part.partNumber?.trim().toLowerCase() === normalizedCardTitle
-      ) || null
+    
+    // Find parts with matching part number
+    const partsWithMatchingNumber = partsQuery.data.filter(
+      (part) => part.partNumber?.trim().toLowerCase() === normalizedCardTitle
     );
-  }, [partsQuery.data, normalizedCardTitle]);
+
+    if (partsWithMatchingNumber.length === 0) return null;
+
+    // If we have a version ID, try to match by version
+    // The parts are from a specific version context (queryParams), so we need to check
+    // if the card's version matches the query context version
+    if (cardVersionId && card.onshape_instance_id) {
+      // Check if the card's instance_id matches the query context
+      // This ensures we're matching the right version
+      // Note: The partsQuery is already filtered by the query context version
+      // So if the card's version matches the query context, the part should match
+      // We'll match the first part with the correct part number since parts are already version-specific
+      return partsWithMatchingNumber[0] || null;
+    }
+
+    // Fallback: return first matching part (for backward compatibility)
+    return partsWithMatchingNumber[0] || null;
+  }, [partsQuery.data, normalizedCardTitle, cardVersionId, card.onshape_instance_id]);
 
   // Calculate due date difference once to avoid duplicate Date calculations
   const dueDateDiffDays = useMemo(
@@ -338,6 +414,29 @@ export function KanbanCardDetails({
                             Part not found
                           </span>
                         ) : null}
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* Version Name */}
+                  {cardVersionId && card.onshape_document_id && (
+                    <tr>
+                      <td className="text-muted-foreground px-4 py-3 text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <div className="flex size-6 items-center justify-center rounded-full bg-purple-500/10">
+                            <Box className="size-3.5 text-purple-600" />
+                          </div>
+                          <span>Version</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm">
+                          {versionQuery.isLoading
+                            ? "Loading..."
+                            : versionQuery.isError
+                              ? "Unable to load"
+                              : versionQuery.data?.name || "Unknown"}
+                        </span>
                       </td>
                     </tr>
                   )}
