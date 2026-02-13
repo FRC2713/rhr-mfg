@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil } from "lucide-react";
+import { Pencil, Wrench } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -8,13 +8,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "~/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
 import { KanbanCardRow, EquipmentRow } from "~/lib/supabase/database.types";
 
 type MachineSelectDialogProps = {
@@ -39,6 +32,12 @@ export function MachineSelectDialog({ card }: MachineSelectDialogProps) {
     queryFn: fetchEquipment,
   });
 
+  const sortedEquipment = useMemo(() => {
+    return [...equipment].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    );
+  }, [equipment]);
+
   const assignMachine = useMutation({
     mutationFn: async (machine: string | null) => {
       const response = await fetch(`/api/kanban/cards/${card.id}`, {
@@ -62,9 +61,9 @@ export function MachineSelectDialog({ card }: MachineSelectDialogProps) {
     },
   });
 
-  const handleValueChange = (value: string) => {
-    const machineValue = value === "none" ? null : value;
-    assignMachine.mutate(machineValue);
+  const handleSelect = (machine: string | null) => {
+    if (assignMachine.isPending) return;
+    assignMachine.mutate(machine);
   };
 
   return (
@@ -79,28 +78,38 @@ export function MachineSelectDialog({ card }: MachineSelectDialogProps) {
         <DialogHeader>
           <DialogTitle>Select Machine</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <Select
-            value={card.machine || "none"}
-            onValueChange={handleValueChange}
-            disabled={assignMachine.isPending}
+        <div className="flex max-h-[min(60vh,400px)] flex-col gap-2 overflow-y-auto">
+          <div
+            className="hover:bg-primary/10 flex cursor-pointer items-center gap-3 rounded-md border p-2"
+            onClick={() => handleSelect(null)}
+            onKeyDown={(e) =>
+              e.key === "Enter" && handleSelect(null)
+            }
+            role="button"
+            tabIndex={0}
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Select a machine" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None (Unassigned)</SelectItem>
-              {equipment.map((item) => (
-                <SelectItem key={item.id} value={item.name}>
-                  {item.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {assignMachine.isPending && (
-            <p className="text-muted-foreground text-sm">Updating...</p>
-          )}
+            <Wrench className="text-muted-foreground size-4" />
+            <span>None (Unassigned)</span>
+          </div>
+          {sortedEquipment.map((item) => (
+            <div
+              className="hover:bg-primary/10 flex cursor-pointer items-center gap-3 rounded-md border p-2"
+              key={item.id}
+              onClick={() => handleSelect(item.name)}
+              onKeyDown={(e) =>
+                e.key === "Enter" && handleSelect(item.name)
+              }
+              role="button"
+              tabIndex={0}
+            >
+              <Wrench className="text-primary size-4" />
+              {item.name}
+            </div>
+          ))}
         </div>
+        {assignMachine.isPending && (
+          <p className="text-muted-foreground text-sm">Updating...</p>
+        )}
       </DialogContent>
     </Dialog>
   );

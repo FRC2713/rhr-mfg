@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import {
   Calendar,
   Clock,
+  Columns3,
   Trash2,
   User,
   Wrench,
@@ -9,7 +10,7 @@ import {
   ExternalLink,
   Hash,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { Button } from "~/components/ui/button";
 import {
@@ -24,6 +25,13 @@ import {
   AlertDialogTrigger,
 } from "~/components/ui/alert-dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
+import {
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -37,6 +45,7 @@ import type {
 import type { BtPartMetadataInfo } from "~/lib/onshapeApi/generated-wrapper";
 import { Badge } from "~/components/ui/badge";
 import type { UseMutationResult } from "@tanstack/react-query";
+import { useKanbanColumns } from "~/lib/kanbanApi/queries";
 import { AssignCardDialog } from "./AssignCardDialog";
 import { MachineSelectDialog } from "./MachineSelectDialog";
 
@@ -223,6 +232,7 @@ export function KanbanCardDetails({
   const hasMeta = useMemo(
     () =>
       !!(
+        card.column_id ||
         card.assignee ||
         card.machine ||
         card.due_date ||
@@ -231,6 +241,7 @@ export function KanbanCardDetails({
         (card.processes && card.processes.length > 0)
       ),
     [
+      card.column_id,
       card.assignee,
       card.machine,
       card.due_date,
@@ -239,6 +250,28 @@ export function KanbanCardDetails({
       card.processes,
     ]
   );
+
+  // Fetch columns for the status dropdown
+  const { data: columns = [] } = useKanbanColumns();
+  const queryClient = useQueryClient();
+  const moveCardMutation = useMutation({
+    mutationFn: async (columnId: string) => {
+      const response = await fetch(`/api/kanban/cards/${card.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ column_id: columnId }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to move card");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kanban-cards"] });
+      queryClient.invalidateQueries({ queryKey: ["kanban-columns"] });
+    },
+  });
 
   // Get creator from map instead of individual query
   const creator = card.created_by ? usersMap.get(card.created_by) : undefined;
@@ -370,6 +403,48 @@ export function KanbanCardDetails({
             <div className="bg-card overflow-hidden rounded-lg border">
               <table className="w-full">
                 <tbody className="divide-y">
+                  {/* Column / Status */}
+                  <tr>
+                    <td className="text-muted-foreground w-1/3 px-4 py-3 text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-primary/10 flex size-6 items-center justify-center rounded-full">
+                          <Columns3 className="text-primary size-3.5" />
+                        </div>
+                        <span>Status</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="space-y-1">
+                        <Select
+                          value={card.column_id}
+                          onValueChange={(value) =>
+                            moveCardMutation.mutate(value)
+                          }
+                          disabled={moveCardMutation.isPending}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {columns
+                              .slice()
+                              .sort((a, b) => a.position - b.position)
+                              .map((col) => (
+                                <SelectItem key={col.id} value={col.id}>
+                                  {col.title}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        {moveCardMutation.isPending && (
+                          <p className="text-muted-foreground text-xs">
+                            Updating...
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+
                   {/* Assignee */}
                   <tr>
                     <td className="text-muted-foreground w-1/3 px-4 py-3 text-sm font-medium">
