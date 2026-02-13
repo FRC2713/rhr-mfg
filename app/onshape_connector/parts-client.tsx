@@ -38,7 +38,7 @@ interface MfgPartsClientProps {
 }
 
 //example url: http://localhost:3000/onshape_connector?elementType=PARTSTUDIO&documentId=6fcef187b1ff2c7d43932486&instanceType=w&instanceId=0330c62599ec344c4a9b77a5&elementId=21aa6247faa0fb5954a76f5b
-
+//             http://localhost:3000/onshape_connector?elementType=PARTSTUDIO&documentId=53c38f13ca333ed762a7da35&instanceType=v&instanceId=d1415051313f9c6e9d96da02&elementId=c928e6ec72d8ad05c31d8aa4
 export function MfgPartsClient({
   queryParams,
   error: validationError,
@@ -477,45 +477,6 @@ export function MfgPartsClient({
 
         <Separator />
 
-        {/* Bulk Release UI */}
-        {selectedPartKeys.size > 0 && (
-          <>
-            {selectedPartsInfo.allEligible ? (
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => setBulkReleaseDialogOpen(true)}
-                  disabled={isBulkReleasing}
-                >
-                  Release {selectedPartKeys.size} part
-                  {selectedPartKeys.size !== 1 ? "s" : ""} to manufacturing
-                </Button>
-                {isBulkReleasing && (
-                  <span className="text-muted-foreground text-sm">
-                    Releasing parts...
-                  </span>
-                )}
-              </div>
-            ) : (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Some parts are not eligible</AlertTitle>
-                <AlertDescription>
-                  {selectedPartsInfo.ineligibleParts.length} card
-                  {selectedPartsInfo.ineligibleParts.length !== 1
-                    ? "s"
-                    : ""}{" "}
-                  {selectedPartsInfo.ineligibleParts.length !== 1
-                    ? "are"
-                    : "is"}{" "}
-                  not eligible for release. Please ensure all selected parts
-                  have a material, part number, and are not already in the
-                  manufacturing tracker.
-                </AlertDescription>
-              </Alert>
-            )}
-          </>
-        )}
-
         {/* Parts List */}
         {parts && parts.length === 0 && !displayError && (
           <Card>
@@ -676,6 +637,49 @@ export function MfgPartsClient({
           onSubmit={handleBulkRelease}
           isSubmitting={isBulkReleasing}
         />
+
+        {/* Floating Bulk Release UI */}
+        {selectedPartKeys.size > 0 && (
+          <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center p-4 pb-8">
+            <div className="bg-card border-border flex items-center gap-4 rounded-lg border shadow-lg px-4 py-3">
+              {selectedPartsInfo.allEligible ? (
+                <>
+                  <Button
+                    onClick={() => setBulkReleaseDialogOpen(true)}
+                    disabled={isBulkReleasing}
+                  >
+                    Release {selectedPartKeys.size} part
+                    {selectedPartKeys.size !== 1 ? "s" : ""} to manufacturing
+                  </Button>
+                  {isBulkReleasing && (
+                    <span className="text-muted-foreground text-sm">
+                      Releasing parts...
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="text-destructive h-5 w-5 shrink-0" />
+                  <div>
+                    <p className="font-medium">
+                      Some parts are not eligible
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      {selectedPartsInfo.ineligibleParts.length} card
+                      {selectedPartsInfo.ineligibleParts.length !== 1 ? "s" : ""}{" "}
+                      {selectedPartsInfo.ineligibleParts.length !== 1
+                        ? "are"
+                        : "is"}{" "}
+                      not eligible for release. Ensure all selected parts have a
+                      material, part number, and are not already in the
+                      manufacturing tracker.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

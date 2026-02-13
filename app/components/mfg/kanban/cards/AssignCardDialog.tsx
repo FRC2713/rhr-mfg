@@ -29,7 +29,7 @@ export function AssignCardDialog({ card }: AssignCardDialogProps) {
   });
 
   const assignCard = useMutation({
-    mutationFn: async (assignee: string) => {
+    mutationFn: async (assignee: string | null) => {
       const response = await fetch(`/api/kanban/cards/${card.id}/assign`, {
         method: "POST",
         headers: {
@@ -64,7 +64,9 @@ export function AssignCardDialog({ card }: AssignCardDialogProps) {
           <DialogTitle>Assign Card To</DialogTitle>
         </DialogHeader>
         <UsersList
-          onSelect={(user) => assignCard.mutateAsync(user.onshape_user_id)}
+          onSelect={(user) =>
+            assignCard.mutateAsync(user?.onshape_user_id ?? null)
+          }
         />
       </DialogContent>
     </Dialog>
