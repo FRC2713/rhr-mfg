@@ -33,6 +33,7 @@ import {
 import type { KanbanCardRow, UserRow } from "~/lib/supabase/database.types";
 import { KanbanCard as KanbanCardComponent } from "../cards/KanbanCard";
 import { KanbanColumn } from "../columns/KanbanColumn";
+import { KanbanBulkEditBar } from "./KanbanBulkEditBar";
 
 interface KanbanBoardProps {
   config: KanbanConfig;
@@ -41,6 +42,7 @@ interface KanbanBoardProps {
   hideImages?: boolean;
   groupByProcess?: boolean;
   sortByUser?: boolean;
+  searchQuery?: string;
   onAddColumn?: () => void;
   onRenameColumn?: (id: string, newTitle: string) => void;
   onDeleteColumn?: (id: string) => void;
@@ -54,6 +56,7 @@ export function KanbanBoard({
   hideImages = false,
   groupByProcess = false,
   sortByUser = false,
+  searchQuery = "",
   onAddColumn,
   onRenameColumn,
   onDeleteColumn,
@@ -92,6 +95,17 @@ export function KanbanBoard({
   const { data: users = [] } = useUsers();
 
   const cards = cardsData?.cards || [];
+
+  // Filter cards by search query (part number or name via title/content)
+  const filteredCards = useMemo(() => {
+    if (!searchQuery.trim()) return cards;
+    const query = searchQuery.trim().toLowerCase();
+    return cards.filter((card) => {
+      const titleMatch = card.title?.toLowerCase().includes(query);
+      const contentMatch = card.content?.toLowerCase().includes(query);
+      return titleMatch || contentMatch;
+    });
+  }, [cards, searchQuery]);
 
   // Create user lookup map for O(1) access
   const usersMap = useMemo(() => {
@@ -184,8 +198,8 @@ export function KanbanBoard({
   const cardsByColumn = useMemo(() => {
     const grouped: Record<string, KanbanCardRow[]> = {};
 
-    // First, group by column
-    cards.forEach((card) => {
+    // First, group by column (using filtered cards)
+    filteredCards.forEach((card) => {
       if (!grouped[card.column_id]) {
         grouped[card.column_id] = [];
       }
@@ -236,7 +250,7 @@ export function KanbanBoard({
     });
 
     return grouped;
-  }, [cards, groupByProcess, sortByUser]);
+  }, [filteredCards, groupByProcess, sortByUser]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -545,6 +559,21 @@ export function KanbanBoard({
           )}
         </div>
       </SortableContext>
+
+      {/* Floating bulk edit bar - shown when cards are selected */}
+      {selectedCardIds.size > 0 && (
+        <KanbanBulkEditBar
+          selectedCardIds={selectedCardIds}
+          cards={cards}
+          columns={columns}
+          users={users}
+          onMoveCard={(cardId, columnId) =>
+            moveCardMutation.mutate({ cardId, columnId })
+          }
+          onClearSelection={clearSelection}
+          isMoving={moveCardMutation.isPending}
+        />
+      )}
 
       <DragOverlay dropAnimation={null}>
         {draggingCards.length > 0 ? (

@@ -10,6 +10,7 @@ import { EditEquipmentDialog } from "~/components/mfg/equipment/EditEquipmentDia
 import { DeleteEquipmentDialog } from "~/components/mfg/equipment/DeleteEquipmentDialog";
 import { EquipmentDetailsSheet } from "~/components/mfg/equipment/EquipmentDetailsSheet";
 import { EquipmentFiltersComponent, type EquipmentFilters } from "~/components/mfg/equipment/EquipmentFilters";
+import { ProcessesSection } from "~/components/mfg/processes/ProcessesSection";
 
 async function fetchEquipment() {
   const response = await fetch("/api/equipment");
@@ -125,33 +126,45 @@ export function EquipmentClient() {
   }
 
   return (
-    <div className="space-y-6">
-      <EquipmentHeader
-        onAddClick={() => setAddDialogOpen(true)}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Toolbar: sticky at top */}
+      <div className="bg-background border-b shrink-0 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="container mx-auto max-w-7xl space-y-4">
+          <EquipmentHeader
+            onAddClick={() => setAddDialogOpen(true)}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
+          {(availableLocations.length > 0 ||
+            filters.processIds.length > 0 ||
+            filters.statuses.length > 0 ||
+            filters.locations.length > 0) && (
+            <EquipmentFiltersComponent
+              filters={filters}
+              onFiltersChange={setFilters}
+              availableLocations={availableLocations}
+            />
+          )}
+        </div>
+      </div>
 
-      {(availableLocations.length > 0 ||
-        filters.processIds.length > 0 ||
-        filters.statuses.length > 0 ||
-        filters.locations.length > 0) && (
-        <EquipmentFiltersComponent
-          filters={filters}
-          onFiltersChange={setFilters}
-          availableLocations={availableLocations}
-        />
-      )}
-
-      <EquipmentGrid
-        equipment={filteredEquipment}
-        loading={isLoading}
-        onEquipmentClick={handleViewDetails}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onViewDetails={handleViewDetails}
-        onAddClick={() => setAddDialogOpen(true)}
-      />
+      {/* Scrollable content */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="container mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+          <EquipmentGrid
+            equipment={filteredEquipment}
+            loading={isLoading}
+            onEquipmentClick={handleViewDetails}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onViewDetails={handleViewDetails}
+            onAddClick={() => setAddDialogOpen(true)}
+          />
+          <div className="mt-8">
+            <ProcessesSection />
+          </div>
+        </div>
+      </div>
 
       <AddEquipmentDialog
         open={addDialogOpen}
