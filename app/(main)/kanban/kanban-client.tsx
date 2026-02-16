@@ -3,13 +3,14 @@
 import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { KanbanSquare, Settings2, Edit, Save, X } from "lucide-react";
+import { KanbanSquare, Search, Settings2, Edit, Save, X } from "lucide-react";
 import {
   KanbanBoard,
   KanbanBoardSkeleton,
 } from "~/components/mfg/kanban/board/KanbanBoard";
 import { KanbanBoardErrorBoundary } from "~/components/mfg/kanban/board/KanbanBoardErrorBoundary";
 import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
 import type {
   KanbanConfig,
   KanbanColumn,
@@ -23,6 +24,7 @@ export function MfgKanbanClient() {
   const [hideImages, setHideImages] = useState(false);
   const [groupByProcess, setGroupByProcess] = useState(false);
   const [sortByUser, setSortByUser] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [originalConfig, setOriginalConfig] = useState<KanbanConfig | null>(
     null
   );
@@ -196,8 +198,8 @@ export function MfgKanbanClient() {
       {/* Page Header */}
       <header className="bg-muted/30 relative border-b bg-linear-to-r">
         <div className="relative px-4 py-2">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-3 sm:gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 sm:gap-4">
               <div className="bg-primary/10 ring-primary/20 flex size-6 shrink-0 items-center justify-center rounded-xl ring-1 sm:size-8">
                 <KanbanSquare className="text-primary size-5 sm:size-6" />
               </div>
@@ -206,6 +208,27 @@ export function MfgKanbanClient() {
                   Kanban Board
                 </h1>
               </div>
+            </div>
+            <div className="relative w-full min-w-0 flex-1 sm:max-w-md">
+              <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+              <Input
+                type="text"
+                placeholder="Search by part number or name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 pl-9 pr-9"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-1/2 right-0 size-8 -translate-y-1/2"
+                  onClick={() => setSearchQuery("")}
+                  title="Clear search"
+                >
+                  <X className="size-3.5" />
+                </Button>
+              )}
             </div>
             <KanbanBoardControls
               isEditMode={isEditMode}
@@ -238,6 +261,7 @@ export function MfgKanbanClient() {
               hideImages={hideImages}
               groupByProcess={groupByProcess}
               sortByUser={sortByUser}
+              searchQuery={searchQuery}
               onAddColumn={isEditMode ? handleAddColumn : undefined}
               onRenameColumn={isEditMode ? handleRenameColumn : undefined}
               onDeleteColumn={isEditMode ? handleDeleteColumn : undefined}
