@@ -40,7 +40,7 @@ interface KanbanBoardProps {
   onConfigChange: (config: KanbanConfig) => void;
   isEditMode?: boolean;
   hideImages?: boolean;
-  groupByProcess?: boolean;
+  processFilterIds?: string[];
   sortByUser?: boolean;
   searchQuery?: string;
   onAddColumn?: () => void;
@@ -54,7 +54,7 @@ export function KanbanBoard({
   onConfigChange,
   isEditMode = false,
   hideImages = false,
-  groupByProcess = false,
+  processFilterIds = [],
   sortByUser = false,
   searchQuery = "",
   onAddColumn,
@@ -96,16 +96,31 @@ export function KanbanBoard({
 
   const cards = cardsData?.cards || [];
 
-  // Filter cards by search query (part number or name via title/content)
+  // Filter cards by search query and process filter
   const filteredCards = useMemo(() => {
-    if (!searchQuery.trim()) return cards;
-    const query = searchQuery.trim().toLowerCase();
-    return cards.filter((card) => {
-      const titleMatch = card.title?.toLowerCase().includes(query);
-      const contentMatch = card.content?.toLowerCase().includes(query);
-      return titleMatch || contentMatch;
-    });
-  }, [cards, searchQuery]);
+    let result = cards;
+
+    // Filter by search query (part number or name via title/content)
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase();
+      result = result.filter((card) => {
+        const titleMatch = card.title?.toLowerCase().includes(query);
+        const contentMatch = card.content?.toLowerCase().includes(query);
+        return titleMatch || contentMatch;
+      });
+    }
+
+    // Filter by process: when processFilterIds has values, only show cards that have at least one of those processes
+    if (processFilterIds.length > 0) {
+      result = result.filter((card) => {
+        const cardProcesses = (card as KanbanCardRow & { processes?: { id: string }[] }).processes || [];
+        const cardProcessIds = cardProcesses.map((p) => p.id);
+        return processFilterIds.some((id) => cardProcessIds.includes(id));
+      });
+    }
+
+    return result;
+  }, [cards, searchQuery, processFilterIds]);
 
   // Create user lookup map for O(1) access
   const usersMap = useMemo(() => {
@@ -209,29 +224,7 @@ export function KanbanBoard({
     // Sort cards within each column
     Object.keys(grouped).forEach((columnId) => {
       grouped[columnId].sort((a, b) => {
-        // First priority: sort by process if enabled
-        if (groupByProcess) {
-          const aProcesses = (a as any).processes || [];
-          const bProcesses = (b as any).processes || [];
-
-          const getProcessName = (processes: any[]): string => {
-            if (processes.length === 0) return "zzz_Unassigned Processes";
-            if (processes.length === 1) return processes[0].name;
-            return "zzz_Multiple Processes";
-          };
-
-          const aProcessName = getProcessName(aProcesses);
-          const bProcessName = getProcessName(bProcesses);
-          const processCompare = aProcessName.localeCompare(bProcessName);
-
-          // If processes are different, return the comparison
-          // Otherwise, continue to next sort criteria
-          if (processCompare !== 0) {
-            return processCompare;
-          }
-        }
-
-        // Second priority: sort by user if enabled
+        // Sort by user if enabled
         if (sortByUser) {
           const aAssignee = a.assignee || "zzz_Unassigned";
           const bAssignee = b.assignee || "zzz_Unassigned";
@@ -250,7 +243,7 @@ export function KanbanBoard({
     });
 
     return grouped;
-  }, [filteredCards, groupByProcess, sortByUser]);
+  }, [filteredCards, sortByUser]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;

@@ -18,6 +18,7 @@ import {
 } from "~/components/ui/select";
 import { Label } from "~/components/ui/label";
 import { Button } from "~/components/ui/button";
+import { Checkbox } from "~/components/ui/checkbox";
 import { cn } from "~/lib/utils";
 import { Separator } from "~/components/ui/separator";
 import type { SortBy, SortDirection } from "./hooks/usePartsSort";
@@ -39,6 +40,8 @@ interface OnshapeConnectorToolbarProps {
   isSearching?: boolean;
   viewMode?: "cards" | "list";
   onViewModeChange?: (mode: "cards" | "list") => void;
+  hideReleased?: boolean;
+  onHideReleasedChange?: (value: boolean) => void;
 }
 
 export function OnshapeConnectorToolbar({
@@ -55,6 +58,8 @@ export function OnshapeConnectorToolbar({
   isSearching = false,
   viewMode = "cards",
   onViewModeChange,
+  hideReleased = false,
+  onHideReleasedChange,
 }: OnshapeConnectorToolbarProps) {
   const handleSortDirectionToggle = () => {
     onSortDirectionChange(sortDirection === "asc" ? "desc" : "asc");
@@ -167,8 +172,8 @@ export function OnshapeConnectorToolbar({
           </Button>
         </div>
       </div>
-      {(resultCount !== undefined || isSearching || sortLabel) && (
-        <div className="flex items-center gap-2 text-sm">
+      {(resultCount !== undefined || isSearching || sortLabel || onHideReleasedChange) && (
+        <div className="flex flex-wrap items-center gap-4 text-sm">
           {isSearching && (
             <span className="text-muted-foreground text-xs">Searching...</span>
           )}
@@ -180,6 +185,17 @@ export function OnshapeConnectorToolbar({
             </span>
           )}
           {sortLabel}
+          {onHideReleasedChange && (
+            <label className="flex cursor-pointer items-center gap-2 text-xs">
+              <Checkbox
+                checked={hideReleased}
+                onCheckedChange={(checked) =>
+                  onHideReleasedChange(checked === true)
+                }
+              />
+              <span className="text-muted-foreground">Hide released parts</span>
+            </label>
+          )}
         </div>
       )}
     </div>

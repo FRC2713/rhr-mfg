@@ -197,7 +197,7 @@ export function PartMfgState({
           disabled={isButtonDisabled}
           onClick={() => setDialogOpen(true)}
         >
-          Add to manufacturing tracker
+          Release
         </Button>
         {!isEligible && (
           <p className="text-muted-foreground text-xs">

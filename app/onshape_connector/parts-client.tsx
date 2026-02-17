@@ -48,6 +48,7 @@ export function MfgPartsClient({
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [hideReleased, setHideReleased] = useState(false);
 
   // Selection state management
   const [selectedPartKeys, setSelectedPartKeys] = useState<Set<string>>(
@@ -86,6 +87,21 @@ export function MfgPartsClient({
     cardByPartNumber,
     columnById,
   });
+
+  // Filter out released parts when hideReleased is enabled
+  const displayedParts = useMemo(() => {
+    if (!hideReleased) return sortedParts;
+    const versionId = extractVersionId(queryParams);
+    return sortedParts.filter((part) => {
+      const compositeKey = part.partNumber
+        ? getPartVersionKey(part.partNumber, versionId)
+        : null;
+      const matchingCard = compositeKey
+        ? cardByPartNumber.get(compositeKey) ?? cardByPartNumber.get(part.partNumber!)
+        : undefined;
+      return !matchingCard;
+    });
+  }, [hideReleased, sortedParts, cardByPartNumber, queryParams]);
 
   // Check eligibility for selected parts
   const selectedPartsInfo = useMemo(() => {
@@ -467,11 +483,13 @@ export function MfgPartsClient({
             onSortDirectionChange={setSortDirection}
             onRefresh={handleRefresh}
             isFetching={isLoading}
-            resultCount={sortedParts.length}
+            resultCount={displayedParts.length}
             totalCount={parts.length}
             isSearching={isSearching}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            hideReleased={hideReleased}
+            onHideReleasedChange={setHideReleased}
           />
         )}
 
@@ -490,7 +508,7 @@ export function MfgPartsClient({
 
         {parts && parts.length > 0 && queryParams && (
           <div>
-            {sortedParts.length === 0 ? (
+            {displayedParts.length === 0 ? (
               <Card>
                 <CardContent className="pt-6">
                   <div className="space-y-2 text-center">
@@ -511,7 +529,7 @@ export function MfgPartsClient({
               </Card>
             ) : viewMode === "cards" ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {sortedParts.map((part, index) => {
+                {displayedParts.map((part, index) => {
                   // Generate a stable key - include version ID for uniqueness across versions
                   const versionId = extractVersionId(queryParams);
                   const partKey =
@@ -542,7 +560,7 @@ export function MfgPartsClient({
                     : undefined;
 
                   // Generate all part keys for range selection (include version for uniqueness)
-                  const allPartKeys = sortedParts.map(
+                  const allPartKeys = displayedParts.map(
                     (p) =>
                       p.partId ||
                       p.id ||
@@ -569,7 +587,7 @@ export function MfgPartsClient({
               </div>
             ) : (
               <div className="flex flex-col gap-2">
-                {sortedParts.map((part, index) => {
+                {displayedParts.map((part, index) => {
                   // Generate a stable key - include version ID for uniqueness across versions
                   const versionId = extractVersionId(queryParams);
                   const partKey =
@@ -600,7 +618,7 @@ export function MfgPartsClient({
                     : undefined;
 
                   // Generate all part keys for range selection (include version for uniqueness)
-                  const allPartKeys = sortedParts.map(
+                  const allPartKeys = displayedParts.map(
                     (p) =>
                       p.partId ||
                       p.id ||

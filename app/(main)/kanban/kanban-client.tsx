@@ -22,7 +22,7 @@ export function MfgKanbanClient() {
   const queryClient = useQueryClient();
   const [isEditMode, setIsEditMode] = useState(false);
   const [hideImages, setHideImages] = useState(false);
-  const [groupByProcess, setGroupByProcess] = useState(false);
+  const [selectedProcessIds, setSelectedProcessIds] = useState<string[]>([]);
   const [sortByUser, setSortByUser] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [originalConfig, setOriginalConfig] = useState<KanbanConfig | null>(
@@ -125,8 +125,8 @@ export function MfgKanbanClient() {
     setHideImages(!hideImages);
   };
 
-  const handleGroupByProcessChange = (value: boolean) => {
-    setGroupByProcess(value);
+  const handleProcessFilterChange = (processIds: string[]) => {
+    setSelectedProcessIds(processIds);
   };
 
   const handleSortByUserChange = (value: boolean) => {
@@ -239,9 +239,9 @@ export function MfgKanbanClient() {
               isSaving={saveConfigMutation.isPending}
               onHideImages={handleHideImages}
               hideImages={hideImages}
-              groupByProcess={groupByProcess}
+              selectedProcessIds={selectedProcessIds}
+              onProcessFilterChange={handleProcessFilterChange}
               sortByUser={sortByUser}
-              onGroupByProcessChange={handleGroupByProcessChange}
               onSortByUserChange={handleSortByUserChange}
             />
           </div>
@@ -259,7 +259,7 @@ export function MfgKanbanClient() {
               onConfigChange={handleConfigChange}
               isEditMode={isEditMode}
               hideImages={hideImages}
-              groupByProcess={groupByProcess}
+              processFilterIds={selectedProcessIds}
               sortByUser={sortByUser}
               searchQuery={searchQuery}
               onAddColumn={isEditMode ? handleAddColumn : undefined}

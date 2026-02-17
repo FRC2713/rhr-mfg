@@ -22,6 +22,7 @@ import {
 import { Home, User, LogIn, LogOut, Moon, Sun, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { KanbanRealtimeSubscriber } from "~/components/kanban/KanbanRealtimeSubscriber";
 
 function getBreadcrumbs(pathname: string) {
   const paths = pathname.split("/").filter(Boolean);
@@ -82,6 +83,7 @@ export function MainLayoutClient({
 
   return (
     <div className="flex h-full flex-col">
+      <KanbanRealtimeSubscriber />
       {/* Breadcrumbs */}
       <div className="bg-background/95 supports-[backdrop-filter]:bg-background/60 border-b backdrop-blur">
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
