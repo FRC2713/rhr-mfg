@@ -245,6 +245,33 @@ export interface Database {
           },
         ];
       };
+      part_thumbnails: {
+        Row: {
+          document_id: string;
+          instance_type: string;
+          instance_id: string;
+          element_id: string;
+          part_id: string;
+          storage_path: string;
+          source_url: string | null;
+          created_at: string;
+        };
+        Insert: {
+          document_id: string;
+          instance_type: string;
+          instance_id: string;
+          element_id: string;
+          part_id: string;
+          storage_path: string;
+          source_url?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          storage_path?: string;
+          source_url?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -291,3 +318,7 @@ export type EquipmentProcessInsert = Tables<"equipment_processes">["Insert"];
 
 export type KanbanCardProcessRow = Tables<"kanban_card_processes">["Row"];
 export type KanbanCardProcessInsert = Tables<"kanban_card_processes">["Insert"];
+
+export type PartThumbnailRow = Tables<"part_thumbnails">["Row"];
+export type PartThumbnailInsert = Tables<"part_thumbnails">["Insert"];
+export type PartThumbnailUpdate = Tables<"part_thumbnails">["Update"];

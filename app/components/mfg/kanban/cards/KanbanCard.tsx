@@ -118,59 +118,16 @@ export const KanbanCard = memo(function KanbanCard({
   const [sheetOpen, setSheetOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  // Ensure imageUrl is properly formatted
-  // If missing, rebuild using card's stored version-specific parameters
   const imageUrl = useMemo(() => {
     if (hideImages) return undefined;
-
-    // If we have a stored image_url, use it (it's already version-specific)
-    if (card.image_url) {
-      // If it's already our proxy endpoint, use as is
-      if (card.image_url.startsWith("/api/onshape/thumbnail")) {
-        return card.image_url;
-      }
-
-      // If it's a direct Onshape URL, wrap it in our proxy
-      if (card.image_url.includes("onshape.com")) {
-        return `/api/onshape/thumbnail?url=${encodeURIComponent(card.image_url)}`;
-      }
-
-      // Otherwise assume it's a public URL and use as is
-      return card.image_url;
-    }
-
-    // Fallback: rebuild thumbnail URL using card's stored version-specific parameters
-    if (
-      card.onshape_document_id &&
-      card.onshape_instance_id &&
-      card.onshape_element_id &&
-      card.onshape_part_id
-    ) {
-      const wvm =
-        card.onshape_instance_type === "w"
-          ? "w"
-          : card.onshape_instance_type === "v"
-            ? "v"
-            : "m";
-      const thumbnailUrl = `https://cad.onshape.com/api/v10/thumbnails/d/${card.onshape_document_id}/${wvm}/${card.onshape_instance_id}/e/${card.onshape_element_id}/p/${encodeURIComponent(card.onshape_part_id)}?outputFormat=PNG&pixelSize=300`;
-      return `/api/onshape/thumbnail?url=${encodeURIComponent(thumbnailUrl)}`;
-    }
-
-    return undefined;
-  }, [
-    card.image_url,
-    card.onshape_document_id,
-    card.onshape_instance_id,
-    card.onshape_instance_type,
-    card.onshape_element_id,
-    card.onshape_part_id,
-    hideImages,
-  ]);
+    if (!card.image_url && !card.onshape_document_id) return undefined;
+    return `/api/onshape/thumbnail?cardId=${card.id}`;
+  }, [card.id, card.image_url, card.onshape_document_id, hideImages]);
 
   // Reset error state when imageUrl changes
   useEffect(() => {
     setImageError(false);
-  }, [card.image_url]);
+  }, [imageUrl]);
 
   const {
     attributes,
