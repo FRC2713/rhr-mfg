@@ -185,7 +185,7 @@ export const KanbanCard = memo(function KanbanCard({
               ? "border-l-primary ring-primary/20 scale-105 rotate-2 shadow-2xl ring-2"
               : isSelected
                 ? "border-l-primary border-l-4 ring-primary/20 ring-2 bg-primary/5"
-                : "hover:border-l-primary/50 hover:border-l-4 hover:shadow-md"
+                : "hover:shadow-md"
           }`}
         >
           <div className="flex flex-col items-start justify-between gap-2">
